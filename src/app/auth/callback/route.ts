@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
   );
 
   // This reads the `code` and friends from the query string and sets the session cookie
-  await supabase.auth.exchangeCodeForSession(url.searchParams);
+  await supabase.auth.exchangeCodeForSession(url.searchParams.toString());
+
 
   return res;
 }
