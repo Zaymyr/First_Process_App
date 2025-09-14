@@ -66,12 +66,20 @@ export async function POST(req: Request) {
 
   // Send Supabase ADMIN invite (email) with redirect to our accept page
   const admin = adminClient();
-  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/accept-invite?inviteId=${invite.id}`;
-  const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo,
-    // optional: preset profile data
-    data: { invited_role: role }
-  });
+  // Build a redirect that goes through /auth/callback first, then to /accept-invite
+const url = new URL(req.url);
+const origin =
+  process.env.NEXT_PUBLIC_SITE_URL ?? `${url.protocol}//${url.host}`;
+
+const redirectTo =
+  `${origin}/auth/callback?next=` +
+  encodeURIComponent(`/accept-invite?inviteId=${invite.id}`);
+
+const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, {
+  redirectTo,
+  data: { invited_role: role },
+});
+
   if (adminErr) {
     return NextResponse.json({ error: `Invite created but email failed: ${adminErr.message}` }, { status: 500 });
   }
