@@ -5,10 +5,8 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const next = url.searchParams.get('next') || '/';
 
-  // prepare redirect
   const res = NextResponse.redirect(new URL(next, url.origin));
 
-  // bind cookies between request and response
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -23,8 +21,17 @@ export async function GET(req: NextRequest) {
     } as any
   );
 
-  // ⬅️ IMPORTANT: pass the full query string
-  await supabase.auth.exchangeCodeForSession(url.searchParams.toString());
+  const params = url.searchParams;
 
+  if (params.get('code')) {
+    // PKCE/code flow
+    await supabase.auth.exchangeCodeForSession(params.toString());
+  } else if (params.get('access_token') && params.get('refresh_token')) {
+    // Implicit flow (tokens came in the fragment, we moved them to query)
+    await supabase.auth.setSession({
+      access_token: params.get('access_token')!,
+      refresh_token: params.get('refresh_token')!,
+    });
+  }
   return res;
 }

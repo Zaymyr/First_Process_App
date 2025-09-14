@@ -12,34 +12,39 @@ export default function AcceptInvitePage() {
   const [err, setErr] = useState<string | null>(null);
 
   // Try to detect a session for a few seconds (user might still be on Supabase "Set password")
-  useEffect(() => {
-    let tries = 0;
-    const tick = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        // we have a session -> accept invite
-        setStatus('accepting');
-        const res = await fetch('/api/invites/accept', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ inviteId }),
-        });
-        const j = await res.json();
-        if (!res.ok) {
-          setErr(j?.error || 'Failed to accept invite');
-          setStatus('error');
-          return;
-        }
-        setStatus('done');
-        router.replace('/org?toast=' + encodeURIComponent('Invite accepted') + '&kind=success');
-        return;
-      }
-      tries += 1;
-      if (tries < 20) setTimeout(tick, 500); // retry up to ~10s
-      else setErr('No session found. Please go back to the email and finish setting your password.');
-    };
-    if (inviteId) tick();
-  }, [inviteId, supabase, router]);
+  // at top of file you already have 'use client' and imports
+
+useEffect(() => {
+  // If Supabase sent implicit tokens in the URL fragment, convert them to query and
+  // bounce through /auth/callback so the server can set cookies.
+  if (typeof window === 'undefined') return;
+  if (location.hash && location.hash.startsWith('#access_token')) {
+    const frag = new URLSearchParams(location.hash.slice(1)); // drop the '#'
+    const q = new URLSearchParams();
+
+    // where to go after cookies are set
+    q.set('next', `/accept-invite?inviteId=${inviteId}`);
+
+    // copy useful fields from fragment to query
+    for (const key of [
+      'access_token',
+      'refresh_token',
+      'expires_in',
+      'expires_at',
+      'token_type',
+      'type',
+      'provider_token',
+    ]) {
+      const v = frag.get(key);
+      if (v) q.set(key, v);
+    }
+
+    // replace so back button isn't messy
+    location.replace(`/auth/callback?${q.toString()}`);
+    return;
+  }
+}, [inviteId]);
+
 
   return (
     <section style={{display:'grid',gap:12,maxWidth:520}}>
