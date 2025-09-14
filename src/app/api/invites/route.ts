@@ -11,18 +11,17 @@ async function cookieClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name: string) => c.get(name)?.value,
-        set: (name: string, value: string, options?: any) => c.set({ name, value, ...options }),
-        remove: (name: string, options?: any) => c.set({ name, value: '', ...options }),
+        get: (n: string) => c.get(n)?.value,
+        set: (n: string, v: string, o?: any) => c.set({ name: n, value: v, ...o }),
+        remove: (n: string, o?: any) => c.set({ name: n, value: '', ...o }),
       },
     } as any
   );
 }
-
 function adminClient() {
   return createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,    // server-only
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   );
 }
@@ -37,20 +36,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
-  // Who is inviting? Must belong to an org and be owner/editor
   const { data: me } = await supabase
     .from('org_members')
     .select('org_id, role')
     .eq('user_id', user.id)
     .limit(1)
     .maybeSingle();
-
   if (!me) return NextResponse.json({ error: 'No org' }, { status: 400 });
   if (!(me.role === 'owner' || me.role === 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Create an invite row (to store desired role + track acceptance)
   const { data: invite, error: invErr } = await supabase
     .from('invites')
     .insert({
@@ -61,28 +57,21 @@ export async function POST(req: Request) {
     })
     .select('id')
     .single();
-
   if (invErr) return NextResponse.json({ error: invErr.message }, { status: 400 });
 
-  // Send Supabase ADMIN invite (email) with redirect to our accept page
   const admin = adminClient();
-  // Build a redirect that goes through /auth/callback first, then to /accept-invite
-const url = new URL(req.url);
-const origin =
-  process.env.NEXT_PUBLIC_SITE_URL ?? `${url.protocol}//${url.host}`;
+  const url = new URL(req.url);
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? `${url.protocol}//${url.host}`;
+  const redirectTo =
+    `${origin}/auth/callback?next=` +
+    encodeURIComponent(`/accept-invite?inviteId=${invite.id}`);
 
-const redirectTo =
-  `${origin}/auth/callback?next=` +
-  encodeURIComponent(`/accept-invite?inviteId=${invite.id}`);
-
-const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, {
-  redirectTo,
-  data: { invited_role: role },
-});
-
+  const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo,
+    data: { invited_role: role },
+  });
   if (adminErr) {
     return NextResponse.json({ error: `Invite created but email failed: ${adminErr.message}` }, { status: 500 });
   }
-
   return NextResponse.json({ ok: true, inviteId: invite.id });
 }
