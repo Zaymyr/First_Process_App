@@ -1,8 +1,7 @@
-// src/middleware.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const AUTH_PAGES = ['/login', '/auth/callback', '/reset-password'];
+const AUTH_PAGES = ['/login', '/auth/callback', '/reset-password', '/accept-invite']; // 👈 add this
 
 function isAuthPage(pathname: string) {
   return AUTH_PAGES.some((p) => pathname.startsWith(p));
@@ -12,7 +11,6 @@ export async function middleware(req: NextRequest) {
   const { nextUrl, cookies } = req;
   const pathname = nextUrl.pathname;
 
-  // Always allow auth pages and Next internals
   if (
     isAuthPage(pathname) ||
     pathname.startsWith('/_next') ||
@@ -22,7 +20,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Create a Supabase server client using request cookies
   const res = NextResponse.next();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,10 +38,7 @@ export async function middleware(req: NextRequest) {
   );
 
   const { data } = await supabase.auth.getSession();
-  const isLoggedIn = !!data.session;
-
-  if (!isLoggedIn) {
-    // Send to login with ?next=original
+  if (!data.session) {
     const loginUrl = new URL('/login', req.url);
     loginUrl.searchParams.set('next', pathname + nextUrl.search);
     return NextResponse.redirect(loginUrl);
