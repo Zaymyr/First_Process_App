@@ -53,8 +53,8 @@ export async function POST(req: Request) {
     supabase.from('org_members').select('role').eq('org_id', me.org_id),
     supabase.from('invites').select('role, accepted_at').eq('org_id', me.org_id).is('accepted_at', null),
   ]);
-
-  if (!sub) return NextResponse.json({ error: 'No active subscription for org' }, { status: 400 });
+  // Apply seat checks only if a subscription exists (active)
+  const hasActiveSub = !!sub && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'paused');
 
   const listMembers = (members ?? []) as Array<{ role: 'owner'|'editor'|'viewer' }>; 
   const listPending = (pendingInvites ?? []) as Array<{ role: 'editor'|'viewer'; accepted_at: string|null }>; 
@@ -64,11 +64,13 @@ export async function POST(req: Request) {
   const usedViewers = listMembers.filter(m => m.role === 'viewer').length +
     listPending.filter(i => i.role === 'viewer').length;
 
-  if (role === 'editor' && usedEditors >= (sub.seats_editor ?? 0)) {
-    return NextResponse.json({ error: 'No editor seats available for this plan' }, { status: 409 });
-  }
-  if (role === 'viewer' && usedViewers >= (sub.seats_viewer ?? 0)) {
-    return NextResponse.json({ error: 'No viewer seats available for this plan' }, { status: 409 });
+  if (hasActiveSub) {
+    if (role === 'editor' && usedEditors >= (sub!.seats_editor ?? 0)) {
+      return NextResponse.json({ error: 'No editor seats available for this plan' }, { status: 409 });
+    }
+    if (role === 'viewer' && usedViewers >= (sub!.seats_viewer ?? 0)) {
+      return NextResponse.json({ error: 'No viewer seats available for this plan' }, { status: 409 });
+    }
   }
 
   const { data: invite, error: invErr } = await supabase

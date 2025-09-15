@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     admin.from('org_members').select('user_id, role').eq('org_id', inv.org_id).eq('user_id', user.id).maybeSingle(),
   ]);
 
-  if (!sub) return NextResponse.json({ error: 'No active subscription for org' }, { status: 400 });
+  const hasActiveSub = !!sub && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'paused');
 
   const list = (members ?? []) as Array<{ user_id: string; role: 'owner'|'editor'|'viewer' }>;
   const usedEditors = list.filter(m => m.role === 'owner' || m.role === 'editor').length;
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   // If user already a member
   if (existing) {
     if (inv.role === 'editor' && existing.role === 'viewer') {
-      if (usedEditors >= (sub.seats_editor ?? 0)) {
+      if (hasActiveSub && usedEditors >= (sub!.seats_editor ?? 0)) {
         return NextResponse.json({ error: 'No editor seats available to upgrade' }, { status: 409 });
       }
       const { error: upErr } = await supabase
@@ -74,13 +74,15 @@ export async function POST(req: Request) {
     // If invite role is same or less, nothing else to do
   } else {
     // New membership: enforce seats for the invited role
-    if (inv.role === 'editor') {
-      if (usedEditors >= (sub.seats_editor ?? 0)) {
-        return NextResponse.json({ error: 'No editor seats available' }, { status: 409 });
-      }
-    } else {
-      if (usedViewers >= (sub.seats_viewer ?? 0)) {
-        return NextResponse.json({ error: 'No viewer seats available' }, { status: 409 });
+    if (hasActiveSub) {
+      if (inv.role === 'editor') {
+        if (usedEditors >= (sub!.seats_editor ?? 0)) {
+          return NextResponse.json({ error: 'No editor seats available' }, { status: 409 });
+        }
+      } else {
+        if (usedViewers >= (sub!.seats_viewer ?? 0)) {
+          return NextResponse.json({ error: 'No viewer seats available' }, { status: 409 });
+        }
       }
     }
 
