@@ -149,9 +149,8 @@ export async function DELETE(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
-  const { user_id, hard } = await req.json();
+  const { user_id } = await req.json();
   if (!user_id) return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
-  const hardDelete: boolean = !!hard; // flag pour forcer suppression compte auth
 
   const { data: me } = await supabase
     .from('org_members')
@@ -229,21 +228,5 @@ export async function DELETE(req: Request) {
     .eq('user_id', user_id);
   if (delMemErr) return NextResponse.json({ error: delMemErr.message }, { status: 400 });
 
-  // Supprimer compte utilisateur si demandé (hard=true)
-  let userDeleted = false;
-  let deletionWarning: string | undefined;
-  if (hardDelete) {
-    try {
-      const { error: delUserErr } = await (admin as any).auth.admin.deleteUser(user_id);
-      if (delUserErr) {
-        deletionWarning = `Account deletion failed: ${delUserErr.message}`;
-      } else {
-        userDeleted = true;
-      }
-    } catch (e:any) {
-      deletionWarning = `Account deletion threw: ${e.message}`;
-    }
-  }
-
-  return NextResponse.json({ ok: true, deletedInvites, userDeleted, warning: deletionWarning });
+  return NextResponse.json({ ok: true, deletedInvites });
 }

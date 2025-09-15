@@ -73,11 +73,73 @@ export async function POST(req: Request) {
     }
   }
 
+  const admin = adminClient();
+  const lowerEmail = email.toLowerCase().trim();
+
+  // Vérifier si un utilisateur existe déjà avec cet email
+  let existingUserId: string | null = null;
+  try {
+    const { data: list } = await (admin as any).auth.admin.listUsers({ perPage: 1, page: 1, filter: { email: lowerEmail } });
+    const found = list?.users?.find((u: any) => (u.email || '').toLowerCase() === lowerEmail);
+    if (found) existingUserId = found.id;
+  } catch { /* ignore */ }
+
+  if (existingUserId) {
+    // Si déjà membre: éventuellement upgrade viewer->editor
+    const { data: membership } = await admin
+      .from('org_members')
+      .select('user_id, role')
+      .eq('org_id', me.org_id)
+      .eq('user_id', existingUserId)
+      .maybeSingle();
+    if (membership) {
+      // Upgrade logique similaire à accept
+      if (membership.role !== role) {
+        const usedEditors = listMembers.filter(m => m.role === 'owner' || m.role === 'editor').length;
+        const usedViewers = listMembers.filter(m => m.role === 'viewer').length;
+        if (hasActiveSub) {
+          if (role === 'editor' && usedEditors >= (sub!.seats_editor ?? 0)) {
+            return NextResponse.json({ error: 'No editor seats available for upgrade' }, { status: 409 });
+          }
+          if (role === 'viewer' && usedViewers >= (sub!.seats_viewer ?? 0)) {
+            return NextResponse.json({ error: 'No viewer seats available for downgrade swap' }, { status: 409 });
+          }
+        }
+        const can_edit = role !== 'viewer';
+        const { error: upErr } = await admin
+          .from('org_members')
+          .update({ role, can_edit })
+          .eq('org_id', me.org_id)
+          .eq('user_id', existingUserId);
+        if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+      }
+      return NextResponse.json({ ok: true, autoAccepted: true, userId: existingUserId });
+    } else {
+      // Nouveau membership direct sans invite
+      const usedEditors = listMembers.filter(m => m.role === 'owner' || m.role === 'editor').length;
+      const usedViewers = listMembers.filter(m => m.role === 'viewer').length;
+      if (hasActiveSub) {
+        if (role === 'editor' && usedEditors >= (sub!.seats_editor ?? 0)) {
+          return NextResponse.json({ error: 'No editor seats available' }, { status: 409 });
+        }
+        if (role === 'viewer' && usedViewers >= (sub!.seats_viewer ?? 0)) {
+          return NextResponse.json({ error: 'No viewer seats available' }, { status: 409 });
+        }
+      }
+      const { error: insErr } = await admin
+        .from('org_members')
+        .insert({ org_id: me.org_id, user_id: existingUserId, role, can_edit: role !== 'viewer' });
+      if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 });
+      return NextResponse.json({ ok: true, autoAccepted: true, userId: existingUserId });
+    }
+  }
+
+  // Utilisateur n'existe pas encore -> créer une invite classique
   const { data: invite, error: invErr } = await supabase
     .from('invites')
     .insert({
       org_id: me.org_id,
-      email: email.toLowerCase().trim(),
+      email: lowerEmail,
       role,
       invited_by: user.id,
     })
@@ -85,23 +147,13 @@ export async function POST(req: Request) {
     .single();
   if (invErr) return NextResponse.json({ error: invErr.message }, { status: 400 });
 
-  const admin = adminClient();
-  // Normalize base URL (remove trailing slashes)
+  // Normalize base URL
   const url = new URL(req.url);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-
-  // Rediriger directement vers /accept-invite pour capturer les tokens (#access_token) côté client
   const redirectTo = `${base}/accept-invite?inviteId=${invite.id}`;
-
-  const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo,
-    data: { invited_role: role },
-  });
-
-  if (adminErr) {
-    return NextResponse.json({ error: `Invite created but email failed: ${adminErr.message}` }, { status: 500 });
-  }
-  return NextResponse.json({ ok: true, inviteId: invite.id });
+  const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
+  if (adminErr) return NextResponse.json({ error: `Invite created but email failed: ${adminErr.message}` }, { status: 500 });
+  return NextResponse.json({ ok: true, inviteId: invite.id, autoAccepted: false });
 }
 
 export async function GET(req: NextRequest) {
