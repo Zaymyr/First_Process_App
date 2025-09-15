@@ -45,11 +45,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invite email mismatch' }, { status: 403 });
   }
 
-  // Fetch subscription and current members to enforce seats
+  // Fetch subscription and current members to enforce seats (admin client to bypass RLS)
   const [{ data: sub }, { data: members }, { data: existing }] = await Promise.all([
-    supabase.from('org_subscriptions').select('*').eq('org_id', inv.org_id).maybeSingle(),
-    supabase.from('org_members').select('user_id, role').eq('org_id', inv.org_id),
-    supabase.from('org_members').select('user_id, role').eq('org_id', inv.org_id).eq('user_id', user.id).maybeSingle(),
+    admin.from('org_subscriptions').select('*').eq('org_id', inv.org_id).maybeSingle(),
+    admin.from('org_members').select('user_id, role').eq('org_id', inv.org_id),
+    admin.from('org_members').select('user_id, role').eq('org_id', inv.org_id).eq('user_id', user.id).maybeSingle(),
   ]);
 
   if (!sub) return NextResponse.json({ error: 'No active subscription for org' }, { status: 400 });
