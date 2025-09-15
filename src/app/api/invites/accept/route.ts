@@ -38,19 +38,59 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invite email mismatch' }, { status: 403 });
   }
 
-  const { error: mErr } = await supabase
-    .from('org_members')
-    .insert({
-      org_id: inv.org_id,
-      user_id: user.id,
-      role: inv.role,
-      can_edit: inv.role !== 'viewer',
-    });
-  // If already a member (unique constraint), treat as success (idempotent)
-  if (mErr) {
-    const msg = mErr.message?.toLowerCase() || '';
-    const isDuplicate = msg.includes('duplicate key') || msg.includes('unique constraint') || msg.includes('already exists');
-    if (!isDuplicate) return NextResponse.json({ error: mErr.message }, { status: 400 });
+  // Fetch subscription and current members to enforce seats
+  const [{ data: sub }, { data: members }, { data: existing }] = await Promise.all([
+    supabase.from('org_subscriptions').select('*').eq('org_id', inv.org_id).maybeSingle(),
+    supabase.from('org_members').select('user_id, role').eq('org_id', inv.org_id),
+    supabase.from('org_members').select('user_id, role').eq('org_id', inv.org_id).eq('user_id', user.id).maybeSingle(),
+  ]);
+
+  if (!sub) return NextResponse.json({ error: 'No active subscription for org' }, { status: 400 });
+
+  const list = (members ?? []) as Array<{ user_id: string; role: 'owner'|'editor'|'viewer' }>;
+  const usedEditors = list.filter(m => m.role === 'owner' || m.role === 'editor').length;
+  const usedViewers = list.filter(m => m.role === 'viewer').length;
+
+  // If user already a member
+  if (existing) {
+    if (inv.role === 'editor' && existing.role === 'viewer') {
+      if (usedEditors >= (sub.seats_editor ?? 0)) {
+        return NextResponse.json({ error: 'No editor seats available to upgrade' }, { status: 409 });
+      }
+      const { error: upErr } = await supabase
+        .from('org_members')
+        .update({ role: 'editor', can_edit: true })
+        .eq('org_id', inv.org_id)
+        .eq('user_id', user.id);
+      if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+    }
+    // If invite role is same or less, nothing else to do
+  } else {
+    // New membership: enforce seats for the invited role
+    if (inv.role === 'editor') {
+      if (usedEditors >= (sub.seats_editor ?? 0)) {
+        return NextResponse.json({ error: 'No editor seats available' }, { status: 409 });
+      }
+    } else {
+      if (usedViewers >= (sub.seats_viewer ?? 0)) {
+        return NextResponse.json({ error: 'No viewer seats available' }, { status: 409 });
+      }
+    }
+
+    const { error: mErr } = await supabase
+      .from('org_members')
+      .insert({
+        org_id: inv.org_id,
+        user_id: user.id,
+        role: inv.role,
+        can_edit: inv.role !== 'viewer',
+      });
+
+    if (mErr) {
+      const msg = mErr.message?.toLowerCase() || '';
+      const isDuplicate = msg.includes('duplicate key') || msg.includes('unique constraint') || msg.includes('already exists');
+      if (!isDuplicate) return NextResponse.json({ error: mErr.message }, { status: 400 });
+    }
   }
 
   await supabase

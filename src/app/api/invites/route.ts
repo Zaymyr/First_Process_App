@@ -47,6 +47,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Seats enforcement: get subscription and current usage (members + pending invites)
+  const [{ data: sub }, { data: members }, { data: pendingInvites }] = await Promise.all([
+    supabase.from('org_subscriptions').select('*').eq('org_id', me.org_id).maybeSingle(),
+    supabase.from('org_members').select('role').eq('org_id', me.org_id),
+    supabase.from('invites').select('role, accepted_at').eq('org_id', me.org_id).is('accepted_at', null),
+  ]);
+
+  if (!sub) return NextResponse.json({ error: 'No active subscription for org' }, { status: 400 });
+
+  const listMembers = (members ?? []) as Array<{ role: 'owner'|'editor'|'viewer' }>; 
+  const listPending = (pendingInvites ?? []) as Array<{ role: 'editor'|'viewer'; accepted_at: string|null }>; 
+
+  const usedEditors = listMembers.filter(m => m.role === 'owner' || m.role === 'editor').length +
+    listPending.filter(i => i.role === 'editor').length;
+  const usedViewers = listMembers.filter(m => m.role === 'viewer').length +
+    listPending.filter(i => i.role === 'viewer').length;
+
+  if (role === 'editor' && usedEditors >= (sub.seats_editor ?? 0)) {
+    return NextResponse.json({ error: 'No editor seats available for this plan' }, { status: 409 });
+  }
+  if (role === 'viewer' && usedViewers >= (sub.seats_viewer ?? 0)) {
+    return NextResponse.json({ error: 'No viewer seats available for this plan' }, { status: 409 });
+  }
+
   const { data: invite, error: invErr } = await supabase
     .from('invites')
     .insert({

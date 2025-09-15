@@ -65,6 +65,27 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Seats enforcement when changing role
+  const [{ data: sub }, { data: members }, { data: target }] = await Promise.all([
+    supabase.from('org_subscriptions').select('*').eq('org_id', me.org_id).maybeSingle(),
+    supabase.from('org_members').select('user_id, role').eq('org_id', me.org_id),
+    supabase.from('org_members').select('user_id, role').eq('org_id', me.org_id).eq('user_id', user_id).maybeSingle(),
+  ]);
+  if (!sub) return NextResponse.json({ error: 'No active subscription for org' }, { status: 400 });
+
+  if (target) {
+    if (target.role !== role) {
+      const usedEditors = (members ?? []).filter((m: any) => m.role === 'owner' || m.role === 'editor').length;
+      const usedViewers = (members ?? []).filter((m: any) => m.role === 'viewer').length;
+      if (role === 'editor' && usedEditors >= (sub.seats_editor ?? 0)) {
+        return NextResponse.json({ error: 'No editor seats available' }, { status: 409 });
+      }
+      if (role === 'viewer' && usedViewers >= (sub.seats_viewer ?? 0)) {
+        return NextResponse.json({ error: 'No viewer seats available' }, { status: 409 });
+      }
+    }
+  }
+
   const { error } = await supabase
     .from('org_members')
     .update({ role })
