@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       if (hasActiveSub && usedEditors >= (sub!.seats_editor ?? 0)) {
         return NextResponse.json({ error: 'No editor seats available to upgrade' }, { status: 409 });
       }
-      const { error: upErr } = await supabase
+      const { error: upErr } = await admin
         .from('org_members')
         .update({ role: 'editor', can_edit: true })
         .eq('org_id', inv.org_id)
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const { error: mErr } = await supabase
+    const { error: mErr } = await admin
       .from('org_members')
       .insert({
         org_id: inv.org_id,
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
     }
   }
 
-  await supabase
+  await admin
     .from('invites')
     .update({ accepted_by: user.id, accepted_at: new Date().toISOString() })
     .eq('id', inviteId);
