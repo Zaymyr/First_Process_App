@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 async function sb() {
   const c = await cookies();
@@ -23,35 +24,37 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
   const { name } = await req.json();
-  if (!name || typeof name !== 'string') {
+  if (!name || typeof name !== 'string' || !name.trim()) {
     return NextResponse.json({ error: 'Invalid name' }, { status: 400 });
   }
 
-  // find the user's org (single-org rule)
-  const { data: mem } = await supabase
+  // Use admin client to bypass RLS for membership check and update
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  // find the user's org and role
+  const { data: membership, error: memErr } = await admin
     .from('org_members')
-    .select('org_id')
+    .select('org_id, role')
     .eq('user_id', user.id)
     .limit(1)
     .maybeSingle();
-  if (!mem) return NextResponse.json({ error: 'No org' }, { status: 400 });
-
-  // (optional) allow only owner/editor to rename
-  const { data: me } = await supabase
-    .from('org_members')
-    .select('role')
-    .eq('org_id', mem.org_id)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!me || (me.role !== 'owner' && me.role !== 'editor')) {
+  if (memErr) return NextResponse.json({ error: memErr.message }, { status: 400 });
+  if (!membership) return NextResponse.json({ error: 'No org' }, { status: 400 });
+  if (membership.role !== 'owner') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await admin
     .from('organizations')
-    .update({ name })
-    .eq('id', mem.org_id);
+    .update({ name: name.trim() })
+    .eq('id', membership.org_id)
+    .select('id, name')
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, organization: updated });
 }

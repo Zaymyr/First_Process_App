@@ -67,7 +67,7 @@ export default function InvitePage() {
             Viewer{seats ? ` ${seats.viewers.used}/${seats.viewers.limit ?? '∞'}` : ''}
           </option>
           <option value="editor" disabled={editorFull}>
-            Editor{seats ? ` ${seats.editors.used}/${seats.editors.limit ?? '∞'}` : ''}
+            Creator{seats ? ` ${seats.editors.used}/${seats.editors.limit ?? '∞'}` : ''}
           </option>
         </select>
         {noSeatsAvailable && (

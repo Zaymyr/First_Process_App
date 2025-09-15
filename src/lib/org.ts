@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase-server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 type Org = { id: string; name: string | null };
 type Member = { user_id: string; role: 'owner'|'editor'|'viewer' };
@@ -24,7 +25,11 @@ export async function getOrgContext() {
 
   const [{ data: sub }, { data: members }] = await Promise.all([
     supabase.from('org_subscriptions').select('*').eq('org_id', org.id).maybeSingle(),
-    supabase.from('org_members').select('user_id, role').eq('org_id', org.id),
+    // Use admin client to bypass RLS for accurate counts
+    createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
+      .from('org_members')
+      .select('user_id, role')
+      .eq('org_id', org.id),
   ]);
 
   // owners count as editors (usual pricing)

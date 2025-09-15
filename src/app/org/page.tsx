@@ -16,7 +16,7 @@ export default async function OrgPage() {
       <div style={{marginTop:12, padding:12, border:'1px solid #eee'}}>
         <h3>Plan</h3>
         <p>{sub?.plan_id ?? '—'} · status: {sub?.status ?? '—'}</p>
-        <p>Editors: {counts?.editors}/{counts?.editorsMax} · Viewers: {counts?.viewers}/{counts?.viewersMax}</p>
+  <p>Creators: {counts?.editors}/{counts?.editorsMax} · Viewers: {counts?.viewers}/{counts?.viewersMax}</p>
       </div>
 
       <div style={{display:'flex', gap:12}}>

@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     .limit(1)
     .maybeSingle();
   if (!me) return NextResponse.json({ error: 'No org' }, { status: 400 });
-  if (!(me.role === 'owner' || me.role === 'editor')) {
+  if (me.role !== 'owner') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

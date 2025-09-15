@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 async function sb() {
   const c = await cookies();
@@ -31,18 +32,48 @@ export async function GET() {
 
   if (!membership) return NextResponse.json({ items: [] });
 
-  const { data: items, error } = await supabase
+  // Use admin client to bypass RLS and avoid cross-schema join issues
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  const { data: items, error } = await admin
     .from('org_members')
-    .select('user_id, role, can_edit, users:auth.users(email)')
+    .select('user_id, role, can_edit')
     .eq('org_id', membership.org_id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Fetch users' info via Admin API to avoid PostgREST auth.users limitations
+  const ids = Array.from(new Set((items ?? []).map((r: any) => r.user_id).filter(Boolean)));
+  const usersById: Record<string, { email: string | null; name: string | null }> = {};
+  if (ids.length > 0) {
+    const results = await Promise.all(
+      ids.map(async (id: string) => {
+        try {
+          const { data, error } = await (admin as any).auth.admin.getUserById(id);
+          if (error || !data?.user) return { id, email: null, name: null };
+          const u = data.user as any;
+          const meta = (u.user_metadata ?? u.raw_user_meta_data) || {};
+          const name = meta.full_name || meta.name || null;
+          const email = u.email ?? null;
+          return { id, email, name };
+        } catch {
+          return { id, email: null, name: null };
+        }
+      })
+    );
+    for (const r of results) usersById[r.id] = { email: r.email, name: r.name };
+  }
 
   const mapped = (items ?? []).map((r: any) => ({
     user_id: r.user_id,
     role: r.role,
     can_edit: r.can_edit,
-    email: r.users?.email ?? null,
+    email: usersById[r.user_id]?.email ?? null,
+    name: usersById[r.user_id]?.name ?? null,
   }));
 
   return NextResponse.json({ items: mapped });
@@ -61,15 +92,21 @@ export async function PATCH(req: Request) {
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (!me || (me.role !== 'owner' && me.role !== 'editor')) {
+  if (!me || me.role !== 'owner') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Seats enforcement when changing role
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  // Seats enforcement when changing role (bypass RLS with admin)
   const [{ data: sub }, { data: members }, { data: target }] = await Promise.all([
-    supabase.from('org_subscriptions').select('*').eq('org_id', me.org_id).maybeSingle(),
-    supabase.from('org_members').select('user_id, role').eq('org_id', me.org_id),
-    supabase.from('org_members').select('user_id, role').eq('org_id', me.org_id).eq('user_id', user_id).maybeSingle(),
+    admin.from('org_subscriptions').select('*').eq('org_id', me.org_id).maybeSingle(),
+    admin.from('org_members').select('user_id, role').eq('org_id', me.org_id),
+    admin.from('org_members').select('user_id, role').eq('org_id', me.org_id).eq('user_id', user_id).maybeSingle(),
   ]);
   const hasActiveSub = !!sub && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'paused');
 
@@ -85,12 +122,20 @@ export async function PATCH(req: Request) {
           return NextResponse.json({ error: 'No viewer seats available' }, { status: 409 });
         }
       }
+      // Prevent demoting the last owner
+      if (target.role === 'owner' && role !== 'owner') {
+        const owners = (members ?? []).filter((m: any) => m.role === 'owner').length;
+        if (owners <= 1) {
+          return NextResponse.json({ error: 'Cannot demote the only owner' }, { status: 409 });
+        }
+      }
     }
   }
 
-  const { error } = await supabase
+  const can_edit = role === 'editor';
+  const { error } = await admin
     .from('org_members')
-    .update({ role })
+    .update({ role, can_edit })
     .eq('user_id', user_id)
     .eq('org_id', me.org_id);
 
@@ -111,7 +156,7 @@ export async function DELETE(req: Request) {
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (!me || (me.role !== 'owner' && me.role !== 'editor')) {
+  if (!me || me.role !== 'owner') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

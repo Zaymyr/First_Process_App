@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     // derive user's single organization
     const { data: membership, error: memErr } = await supabase
       .from('org_members')
-      .select('org_id')
+      .select('org_id, role')
       .eq('user_id', user.id)
       .limit(1)
       .maybeSingle();
@@ -46,6 +46,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No organization for this user' }, { status: 400 });
     }
     const organization_id: string = membership.org_id;
+    if (!(membership.role === 'owner' || membership.role === 'editor')) {
+      return NextResponse.json({ error: 'Forbidden: creators/owners only' }, { status: 403 });
+    }
 
     // validate department belongs to that org (if provided)
     if (departement_id !== null) {
