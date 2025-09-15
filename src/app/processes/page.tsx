@@ -68,12 +68,14 @@ if (!org) {
   const processes = (processesRaw ?? []) as Proc[];
 
   return (
-    <section style={{ display: 'grid', gap: 16 }}>
-      <h2>Processes — {org.name ?? org.id}</h2>
+    <section className="stack" style={{ maxWidth: 920 }}>
+      <h2>Processes</h2>
 
-      <ProcessForm orgId={org.id} departements={departements} />
+      <div className="card">
+        <ProcessForm orgId={org.id} departements={departements} />
+      </div>
 
-      <ul style={{ marginTop: 8 }}>
+      <ul className="stack" style={{ marginTop: 4 }}>
         {processes.map((p) => (
           <ProcessItem key={p.id} item={p} departements={departements} />
         ))}

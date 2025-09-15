@@ -56,14 +56,9 @@ export default function ProcessItem({
 
   if (editing) {
     return (
-      <li>
-        <input value={name} onChange={(e) => setName(e.target.value)} />
-
-        <select
-          value={dept}
-          onChange={(e) => setDept(e.target.value)}
-          style={{ marginLeft: 8 }}
-        >
+      <li className="card" style={{ display:'flex', gap:8, alignItems:'center' }}>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        <select className="select" value={dept} onChange={(e) => setDept(e.target.value)}>
           <option value="">— no department —</option>
           {deptsForOrg.map((d) => (
             <option key={d.id} value={d.id}>
@@ -71,19 +66,24 @@ export default function ProcessItem({
             </option>
           ))}
         </select>
-
-        <button onClick={save} style={{ marginLeft: 8 }}>Save</button>
-        <button onClick={() => setEditing(false)} style={{ marginLeft: 8 }}>Cancel</button>
+        <button className="btn" onClick={save}>Save</button>
+        <button className="btn btn-outline" onClick={() => setEditing(false)}>Cancel</button>
       </li>
     );
   }
 
   return (
-    <li>
-      <strong>{item.name}</strong> — org: {item.organization_id} —{' '}
-      <time dateTime={item.updated_at ?? ''}>{updated}</time>
-      <button onClick={() => setEditing(true)} style={{ marginLeft: 8 }}>Edit</button>
-      <button onClick={remove} style={{ marginLeft: 8, color: 'crimson' }}>Delete</button>
+    <li className="card" style={{ display:'flex', gap:12, alignItems:'center', justifyContent:'space-between' }}>
+      <div>
+        <strong>{item.name}</strong>
+        <div className="muted" style={{ fontSize: 12 }}>
+          Last update: <time dateTime={item.updated_at ?? ''}>{updated}</time>
+        </div>
+      </div>
+      <div className="row">
+        <button className="btn btn-outline" onClick={() => setEditing(true)}>Edit</button>
+        <button className="btn btn-danger" onClick={remove}>Delete</button>
+      </div>
     </li>
   );
 }

@@ -58,12 +58,12 @@ export default function ProcessForm({
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ display: 'grid', gap: 8, maxWidth: 420 }}>
-      <input name="name" placeholder="Process name" required />
+    <form onSubmit={onSubmit} className="stack" style={{ maxWidth: 520 }}>
+      <input className="input" name="name" placeholder="Process name" required />
 
-      <label style={{ display: 'grid', gap: 4 }}>
+      <label className="stack" style={{ gap: 4 }}>
         <span>Departement</span>
-        <select name="departement_id" defaultValue="">
+        <select className="select" name="departement_id" defaultValue="">
           <option value="">— (optional)</option>
           {deptsForOrg.map((d) => (
             <option key={d.id} value={d.id}>
@@ -73,7 +73,7 @@ export default function ProcessForm({
         </select>
       </label>
 
-      <button type="submit" disabled={pending}>
+      <button className="btn" type="submit" disabled={pending}>
         {pending ? 'Creating…' : 'Create'}
       </button>
       {error && <p style={{ color: 'crimson' }}>{error}</p>}
