@@ -46,8 +46,12 @@ export async function POST(req: Request) {
       role: inv.role,
       can_edit: inv.role !== 'viewer',
     });
-
-  if (mErr) return NextResponse.json({ error: mErr.message }, { status: 400 });
+  // If already a member (unique constraint), treat as success (idempotent)
+  if (mErr) {
+    const msg = mErr.message?.toLowerCase() || '';
+    const isDuplicate = msg.includes('duplicate key') || msg.includes('unique constraint') || msg.includes('already exists');
+    if (!isDuplicate) return NextResponse.json({ error: mErr.message }, { status: 400 });
+  }
 
   await supabase
     .from('invites')
