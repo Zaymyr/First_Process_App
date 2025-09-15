@@ -149,7 +149,9 @@ export async function DELETE(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
-  const { user_id } = await req.json();
+  const { user_id, hard } = await req.json();
+  if (!user_id) return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
+  const hardDelete: boolean = !!hard; // flag pour forcer suppression compte auth
 
   const { data: me } = await supabase
     .from('org_members')
@@ -160,13 +162,86 @@ export async function DELETE(req: Request) {
   if (!me || me.role !== 'owner') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  if (user_id === user.id) {
+    return NextResponse.json({ error: 'You cannot remove yourself here' }, { status: 400 });
+  }
 
-  const { error } = await supabase
+  // Admin client pour bypass RLS et supprimer compte utilisateur
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  // Vérifier cible appartient bien à l'org et récupérer email
+  const { data: targetMember } = await admin
+    .from('org_members')
+    .select('user_id, role')
+    .eq('org_id', me.org_id)
+    .eq('user_id', user_id)
+    .maybeSingle();
+  if (!targetMember) return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+
+  // Protéger dernier owner
+  if (targetMember.role === 'owner') {
+    const { data: owners } = await admin
+      .from('org_members')
+      .select('user_id')
+      .eq('org_id', me.org_id)
+      .eq('role', 'owner');
+    if ((owners ?? []).length <= 1) {
+      return NextResponse.json({ error: 'Cannot remove the only owner' }, { status: 409 });
+    }
+  }
+
+  // Récupérer email via admin auth (peut échouer silencieusement)
+  let email: string | null = null;
+  try {
+    const { data: u } = await (admin as any).auth.admin.getUserById(user_id);
+    email = (u?.user?.email ?? null) as string | null;
+  } catch {}
+
+  // Supprimer invitations PENDING (accepted_at null) liées à l'org et email
+  let deletedInvites = 0;
+  if (email) {
+    const { data: pendingInvites } = await admin
+      .from('invites')
+      .select('id')
+      .eq('org_id', me.org_id)
+      .eq('email', email.toLowerCase())
+      .is('accepted_at', null);
+    if (pendingInvites && pendingInvites.length > 0) {
+      const ids = pendingInvites.map(i => i.id);
+      const { error: delInvErr } = await admin
+        .from('invites')
+        .delete()
+        .in('id', ids);
+      if (delInvErr) return NextResponse.json({ error: delInvErr.message }, { status: 400 });
+      deletedInvites = ids.length;
+    }
+  }
+
+  // Supprimer membership
+  const { error: delMemErr } = await admin
     .from('org_members')
     .delete()
-    .eq('user_id', user_id)
-    .eq('org_id', me.org_id);
+    .eq('org_id', me.org_id)
+    .eq('user_id', user_id);
+  if (delMemErr) return NextResponse.json({ error: delMemErr.message }, { status: 400 });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true });
+  // Supprimer compte utilisateur si demandé (hard=true)
+  let userDeleted = false;
+  if (hardDelete) {
+    try {
+      const { error: delUserErr } = await (admin as any).auth.admin.deleteUser(user_id);
+      if (delUserErr) {
+        return NextResponse.json({ error: `User removed from org but account deletion failed: ${delUserErr.message}` }, { status: 500 });
+      }
+      userDeleted = true;
+    } catch (e:any) {
+      return NextResponse.json({ error: `User removed from org but account deletion threw: ${e.message}` }, { status: 500 });
+    }
+  }
+
+  return NextResponse.json({ ok: true, deletedInvites, userDeleted });
 }

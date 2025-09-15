@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { RemoveMemberButton } from './RemoveMemberButton';
 
 type Member = { user_id: string; role: 'owner'|'editor'|'viewer'; can_edit: boolean };
 type Row = Member & { email?: string|null; name?: string|null };
@@ -22,15 +23,7 @@ export default function MembersPage() {
     const j = await res.json();
     if (!res.ok) alert(j.error || 'Failed'); else location.reload();
   }
-  async function remove(user_id: string) {
-    if (!confirm('Remove member?')) return;
-    const res = await fetch('/api/org/members', {
-      method:'DELETE', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ user_id })
-    });
-    const j = await res.json();
-    if (!res.ok) alert(j.error || 'Failed'); else location.reload();
-  }
+  function onRefresh() { location.reload(); }
 
   if (err) return <p style={{color:'crimson'}}>{err}</p>;
   if (!rows) return <p>Loading…</p>;
@@ -49,7 +42,7 @@ export default function MembersPage() {
                 <button className="btn btn-outline" onClick={()=>changeRole(m.user_id,'owner')}>Make owner</button>
                 <button className="btn btn-outline" onClick={()=>changeRole(m.user_id,'editor')}>Make creator</button>
                 <button className="btn btn-outline" onClick={()=>changeRole(m.user_id,'viewer')}>Make viewer</button>
-                <button className="btn btn-danger" onClick={()=>remove(m.user_id)}>Remove</button>
+                <RemoveMemberButton userId={m.user_id} self={false} onDone={onRefresh} />
               </div>
             </li>
           ))}
