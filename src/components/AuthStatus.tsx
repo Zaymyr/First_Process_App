@@ -72,8 +72,8 @@ export default function AuthStatus() {
     window.location.href = '/login?toast=' + encodeURIComponent('Signed out') + '&kind=info';
       }
 
-  if (loading) return <span>…</span>;
-  if (!signedIn) return <span>Guest · <a href="/login">Login</a></span>;
+  if (loading) return null;
+  if (!signedIn) return null;
 
   return (
     <span style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
