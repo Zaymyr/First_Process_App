@@ -78,14 +78,14 @@ export default function AuthStatus() {
   if (!signedIn) return null;
   return (
     <span style={{ position: 'relative', display: 'flex', gap: 12, alignItems: 'center' }}>
-      <strong>{org?.name ?? '—'}</strong>
-      <button onClick={() => setOpen((v) => !v)} style={{ background:'transparent', border:'none', cursor:'pointer' }}>
+      <span className="tag" title="Current organization">{org?.name ?? '—'}</span>
+      <button onClick={() => setOpen((v) => !v)} className="btn btn-outline" style={{ padding: '6px 10px' }}>
         {userName ?? userEmail} ▾
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', right: 0, background: '#fff', border: '1px solid #ddd', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', borderRadius: 6, padding: 8, minWidth: 160, zIndex: 50 }}>
-          <Link href="/profile" style={{ display: 'block', padding: '6px 8px' }} onClick={()=>setOpen(false)}>My Profile</Link>
-          <button onClick={logout} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 8px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#b00020' }}>Logout</button>
+        <div className="menu" role="menu">
+          <Link className="menu-item" href="/profile" onClick={()=>setOpen(false)}>My Profile</Link>
+          <button className="menu-item" onClick={logout} style={{ color:'#fca5a5' }}>Logout</button>
         </div>
       )}
     </span>
