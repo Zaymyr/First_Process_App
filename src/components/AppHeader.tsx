@@ -52,9 +52,8 @@ export default function AppHeader() {
           ☰
         </button>
         <Link href="/" className="brand" style={{ fontSize: 16 }}>First Process</Link>
-        <Link href="/" className="link hide-mobile" aria-label="Home">Home</Link>
       </nav>
-      <div>
+      <div className="header-actions">
         <AuthStatus />
       </div>
     </header>

@@ -104,6 +104,7 @@ h3 { font-size: 18px; font-weight: 700; }
 /* Header */
 .site-header { position: sticky; top: 0; backdrop-filter: blur(8px); background: rgba(15,17,23,.65); border-bottom: 1px solid var(--border); z-index: 20; }
 .site-header .inner { height: 56px; }
+.header-actions { display:flex; align-items:center; gap:12px; margin-left: auto; }
 
 /* Main spacing */
 main { padding: 20px 0; }
