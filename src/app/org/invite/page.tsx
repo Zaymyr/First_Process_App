@@ -1,11 +1,24 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function InvitePage() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'viewer'|'editor'>('viewer');
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<string|null>(null);
+  const [seats, setSeats] = useState<null | { editors: { used:number, limit:number|null }, viewers: { used:number, limit:number|null } }>(null);
+  const [err, setErr] = useState<string|null>(null);
+
+  useEffect(() => { (async () => {
+    try {
+      const res = await fetch('/api/org/seats');
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || 'Failed to load seats');
+      setSeats({ editors: j.editors, viewers: j.viewers });
+    } catch (e:any) {
+      setErr(e.message || 'Error');
+    }
+  })(); }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,12 +45,17 @@ export default function InvitePage() {
   return (
     <section style={{display:'grid', gap:12, maxWidth:480}}>
       <h2>Invite user</h2>
+      {err && <p style={{color:'crimson'}}>{err}</p>}
       <form onSubmit={onSubmit} style={{display:'grid', gap:8}}>
         <input type="email" placeholder="user@example.com" value={email}
                onChange={e=>setEmail(e.target.value)} required />
         <select value={role} onChange={e=>setRole(e.target.value as any)}>
-          <option value="viewer">Viewer</option>
-          <option value="editor">Editor</option>
+          <option value="viewer" disabled={seats?.viewers.limit != null && seats.viewers.used >= seats.viewers.limit}>
+            Viewer{seats ? ` ${seats.viewers.used}/${seats.viewers.limit ?? '∞'}` : ''}
+          </option>
+          <option value="editor" disabled={seats?.editors.limit != null && seats.editors.used >= seats.editors.limit}>
+            Editor{seats ? ` ${seats.editors.used}/${seats.editors.limit ?? '∞'}` : ''}
+          </option>
         </select>
         <button type="submit" disabled={pending}>
           {pending ? 'Sending…' : 'Send invite'}
