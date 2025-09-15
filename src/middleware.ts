@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const AUTH_PAGES = ['/login', '/auth/callback', '/reset-password', '/accept-invite'];
+const AUTH_PAGES = ['/login', '/auth/callback', '/reset-password'];
 
 
 function isAuthPage(pathname: string) {

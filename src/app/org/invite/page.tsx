@@ -9,7 +9,7 @@ export default function InvitePage() {
   const [seats, setSeats] = useState<null | { editors: { used:number, limit:number|null }, viewers: { used:number, limit:number|null } }>(null);
   const [err, setErr] = useState<string|null>(null);
 
-  useEffect(() => { (async () => {
+  async function loadSeats() {
     try {
       const res = await fetch('/api/org/seats');
       const j = await res.json();
@@ -18,7 +18,19 @@ export default function InvitePage() {
     } catch (e:any) {
       setErr(e.message || 'Error');
     }
-  })(); }, []);
+  }
+
+  useEffect(() => { loadSeats(); }, []);
+
+  const editorFull = seats?.editors.limit != null && seats.editors.used >= seats.editors.limit;
+  const viewerFull = seats?.viewers.limit != null && seats.viewers.used >= seats.viewers.limit;
+  const noSeatsAvailable = !!seats && editorFull && viewerFull;
+
+  useEffect(() => {
+    if (!seats) return;
+    if (role === 'editor' && editorFull && !viewerFull) setRole('viewer');
+    if (role === 'viewer' && viewerFull && !editorFull) setRole('editor');
+  }, [seats, role, editorFull, viewerFull]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,6 +47,7 @@ export default function InvitePage() {
       setMsg('Invite sent ✅');
       setEmail('');
       setRole('viewer');
+      await loadSeats();
     } catch (err:any) {
       setMsg(err.message || 'Error');
     } finally {
@@ -50,14 +63,17 @@ export default function InvitePage() {
         <input type="email" placeholder="user@example.com" value={email}
                onChange={e=>setEmail(e.target.value)} required />
         <select value={role} onChange={e=>setRole(e.target.value as any)}>
-          <option value="viewer" disabled={seats?.viewers.limit != null && seats.viewers.used >= seats.viewers.limit}>
+          <option value="viewer" disabled={viewerFull}>
             Viewer{seats ? ` ${seats.viewers.used}/${seats.viewers.limit ?? '∞'}` : ''}
           </option>
-          <option value="editor" disabled={seats?.editors.limit != null && seats.editors.used >= seats.editors.limit}>
+          <option value="editor" disabled={editorFull}>
             Editor{seats ? ` ${seats.editors.used}/${seats.editors.limit ?? '∞'}` : ''}
           </option>
         </select>
-        <button type="submit" disabled={pending}>
+        {noSeatsAvailable && (
+          <p style={{ color: 'crimson' }}>Aucun siège disponible. Mettez à niveau votre plan pour inviter.</p>
+        )}
+        <button type="submit" disabled={pending || noSeatsAvailable}>
           {pending ? 'Sending…' : 'Send invite'}
         </button>
       </form>
