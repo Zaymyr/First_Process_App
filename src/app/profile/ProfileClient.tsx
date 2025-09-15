@@ -2,9 +2,9 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase-client';
 
-type Props = { email: string | null; initialFullName: string };
+type Props = { email: string | null; initialFullName: string; role: string | null };
 
-export default function ProfileClient({ email, initialFullName }: Props) {
+export default function ProfileClient({ email, initialFullName, role }: Props) {
   const supabase = createClient();
 
   const [fullName, setFullName] = useState<string>(initialFullName);
@@ -43,6 +43,7 @@ export default function ProfileClient({ email, initialFullName }: Props) {
 
       <div>
         <p><strong>Email:</strong> {email}</p>
+        <p><strong>Role:</strong> {role ?? '—'}</p>
       </div>
 
       <form onSubmit={updateProfile} style={{ display: 'grid', gap: 8 }}>

@@ -115,8 +115,9 @@ export async function PATCH(req: Request) {
       const usedEditors = (members ?? []).filter((m: any) => m.role === 'owner' || m.role === 'editor').length;
       const usedViewers = (members ?? []).filter((m: any) => m.role === 'viewer').length;
       if (hasActiveSub) {
-        if (role === 'editor' && usedEditors >= (sub!.seats_editor ?? 0)) {
-          return NextResponse.json({ error: 'No editor seats available' }, { status: 409 });
+        // Treat owner promotions as consuming an editor seat as well
+        if ((role === 'editor' || role === 'owner') && usedEditors >= (sub!.seats_editor ?? 0)) {
+          return NextResponse.json({ error: 'No creator seats available' }, { status: 409 });
         }
         if (role === 'viewer' && usedViewers >= (sub!.seats_viewer ?? 0)) {
           return NextResponse.json({ error: 'No viewer seats available' }, { status: 409 });
@@ -132,7 +133,7 @@ export async function PATCH(req: Request) {
     }
   }
 
-  const can_edit = role === 'editor';
+  const can_edit = role === 'editor' || role === 'owner';
   const { error } = await admin
     .from('org_members')
     .update({ role, can_edit })

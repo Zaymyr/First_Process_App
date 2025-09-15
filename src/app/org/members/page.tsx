@@ -40,9 +40,10 @@ export default function MembersPage() {
       <ul>
         {rows.map(m=>(
           <li key={m.user_id} style={{margin:'6px 0'}}>
-            {m.name ? `${m.name}${m.email ? ` (${m.email})` : ''}` : (m.email || m.user_id)} — <strong>{m.role}</strong>
+            {m.name ? `${m.name}${m.email ? ` (${m.email})` : ''}` : (m.email || m.user_id)} — <strong>{m.role === 'editor' ? 'creator' : m.role}</strong>
+            <button onClick={()=>changeRole(m.user_id,'owner')} style={{marginLeft:8}}>Make owner</button>
+            <button onClick={()=>changeRole(m.user_id,'editor')} style={{marginLeft:8}}>Make creator</button>
             <button onClick={()=>changeRole(m.user_id,'viewer')} style={{marginLeft:8}}>Make viewer</button>
-            <button onClick={()=>changeRole(m.user_id,'editor')} style={{marginLeft:8}}>Make editor</button>
             <button onClick={()=>remove(m.user_id)} style={{marginLeft:8, color:'crimson'}}>Remove</button>
           </li>
         ))}
