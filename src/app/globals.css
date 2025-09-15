@@ -77,9 +77,9 @@ a {
 .input, .select { width: 100%; background: var(--surface); color: var(--foreground); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; outline: none; }
 .input:focus, .select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(107,92,255,.15); }
 
-.tag { display:inline-block; padding: 2px 8px; border-radius: 999px; background: rgba(107,92,255,.1); border:1px solid rgba(107,92,255,.2); color: #d3d6ff; font-weight: 600; font-size: 12px; }
-.tag.ok { background: rgba(22,163,74,.14); border-color: rgba(22,163,74,.3); color: #b7f7cf; }
-.tag.full { background: rgba(220,38,38,.14); border-color: rgba(220,38,38,.32); color: #fecaca; }
+.tag { display:inline-block; padding: 2px 10px; border-radius: 999px; background: rgba(107,92,255,.1); border:1px solid rgba(107,92,255,.2); color: var(--foreground); font-weight: 700; font-size: 13px; letter-spacing: .2px; }
+.tag.ok { background: rgba(22,163,74,.15); border-color: rgba(22,163,74,.4); color: #22c55e; }
+.tag.full { background: rgba(220,38,38,.16); border-color: rgba(220,38,38,.45); color: #ef4444; }
 
 /* Links */
 .link { color: #dfe2ff; text-underline-offset: 3px; }
