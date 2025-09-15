@@ -14,6 +14,11 @@ export function RemoveMemberButton({ userId, self, onDone }: { userId: string; s
       const res = await fetch('/api/org/members', { method:'DELETE', headers:{'content-type':'application/json'}, body: JSON.stringify({ user_id: userId, hard }) });
       const j = await res.json();
       if (!res.ok) { setErr(j.error||'Failed'); return; }
+      if (j.warning) {
+        setErr(j.warning);
+        setTimeout(()=>{ onDone(); }, 2000);
+        return;
+      }
       onDone();
     } finally { setPending(false); }
   }

@@ -231,17 +231,19 @@ export async function DELETE(req: Request) {
 
   // Supprimer compte utilisateur si demandé (hard=true)
   let userDeleted = false;
+  let deletionWarning: string | undefined;
   if (hardDelete) {
     try {
       const { error: delUserErr } = await (admin as any).auth.admin.deleteUser(user_id);
       if (delUserErr) {
-        return NextResponse.json({ error: `User removed from org but account deletion failed: ${delUserErr.message}` }, { status: 500 });
+        deletionWarning = `Account deletion failed: ${delUserErr.message}`;
+      } else {
+        userDeleted = true;
       }
-      userDeleted = true;
     } catch (e:any) {
-      return NextResponse.json({ error: `User removed from org but account deletion threw: ${e.message}` }, { status: 500 });
+      deletionWarning = `Account deletion threw: ${e.message}`;
     }
   }
 
-  return NextResponse.json({ ok: true, deletedInvites, userDeleted });
+  return NextResponse.json({ ok: true, deletedInvites, userDeleted, warning: deletionWarning });
 }
