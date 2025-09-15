@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 
-type Phase = 'checking' | 'need-session' | 'accepting' | 'done' | 'error';
+type Phase = 'checking' | 'need-session' | 'password' | 'accepting' | 'done' | 'error';
 
 export default function AcceptInvitePage() {
   const router = useRouter();
@@ -15,6 +15,10 @@ export default function AcceptInvitePage() {
 
   const [phase, setPhase] = useState<Phase>('checking');
   const [msg, setMsg] = useState<string>('Finishing your invite…');
+  const [email, setEmail] = useState<string | null>(null);
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
 
   // 1) If Supabase sent tokens (hash or query) or a PKCE code, bounce through /auth/callback
   useEffect(() => {
@@ -52,7 +56,7 @@ export default function AcceptInvitePage() {
     }
   }, [inviteId]);
 
-  // 2) Wait for a valid session; once we have one, accept automatically
+  // 2) Wait for a valid session; once we have one, show password form
   useEffect(() => {
     let tries = 0;
     let stop = false;
@@ -62,25 +66,9 @@ export default function AcceptInvitePage() {
       if (stop) return;
 
       if (data.session) {
-        try {
-          setPhase('accepting');
-          const resp = await fetch('/api/invites/accept', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ inviteId }),
-          });
-          const j = await resp.json();
-          if (!resp.ok) {
-            setMsg(j?.error || 'Failed to accept invite.');
-            setPhase('error');
-            return;
-          }
-          setPhase('done');
-          router.replace('/org?toast=' + encodeURIComponent('Bienvenue ! Vous avez rejoint l’organisation.') + '&kind=success');
-        } catch (err: any) {
-          setMsg(err?.message || 'Unexpected error.');
-          setPhase('error');
-        }
+        const u = data.session.user;
+        setEmail(u?.email ?? null);
+        setPhase('password');
         return;
       }
 
@@ -96,6 +84,55 @@ export default function AcceptInvitePage() {
     return () => { stop = true; };
   }, [inviteId, supabase, router]);
 
+  async function acceptInvite() {
+    setPhase('accepting');
+    const resp = await fetch('/api/invites/accept', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ inviteId }),
+    });
+    const j = await resp.json();
+    if (!resp.ok) {
+      setMsg(j?.error || 'Failed to accept invite.');
+      setPhase('error');
+      return;
+    }
+    setPhase('done');
+    router.replace('/org?toast=' + encodeURIComponent('Bienvenue ! Vous avez rejoint l’organisation.') + '&kind=success');
+  }
+
+  async function onSetPasswordAndAccept(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteId) return;
+    if (!password || password !== confirm) {
+      setMsg('Les mots de passe ne correspondent pas.');
+      setPhase('error');
+      return;
+    }
+    try {
+      setBusy(true);
+      setMsg('Définition du mot de passe…');
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        setMsg(error.message);
+        setPhase('error');
+        setBusy(false);
+        return;
+      }
+      await acceptInvite();
+    } catch (err: any) {
+      setMsg(err?.message || 'Erreur inattendue.');
+      setPhase('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSkipAndAccept() {
+    if (!inviteId) return;
+    await acceptInvite();
+  }
+
   return (
     <section style={{ display: 'grid', gap: 16, maxWidth: 520 }}>
       <h2>Finalisation de l’invitation…</h2>
@@ -107,6 +144,31 @@ export default function AcceptInvitePage() {
             <a href="/login?next=/accept-invite">Se connecter manuellement</a>
             <button onClick={() => location.reload()}>Réessayer</button>
           </div>
+        </>
+      )}
+      {phase === 'password' && (
+        <>
+          <p>{email ? `Bonjour ${email}, définissez un mot de passe pour finaliser.` : 'Définissez un mot de passe pour finaliser.'}</p>
+          <form onSubmit={onSetPasswordAndAccept} style={{ display: 'grid', gap: 8 }}>
+            <input
+              type="password"
+              placeholder="Nouveau mot de passe"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <input
+              type="password"
+              placeholder="Confirmer le mot de passe"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="submit" disabled={busy}>{busy ? 'Travail…' : 'Définir le mot de passe et rejoindre'}</button>
+              <button type="button" onClick={onSkipAndAccept} disabled={busy}>Continuer sans définir de mot de passe</button>
+            </div>
+          </form>
         </>
       )}
       {phase === 'accepting' && <p>Acceptation de l’invitation…</p>}
