@@ -67,7 +67,13 @@ export default function InvitePage() {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || 'Failed to invite');
-      setMsg('Invite sent ✅');
+      if (j.duplicate) {
+        setMsg('Invite already pending — no new email sent.');
+      } else if (j.emailMode === 'password-reset') {
+        setMsg(j.emailSent ? 'Password reset email sent (existing account).' : 'Invite created; failed to send password reset email.');
+      } else {
+        setMsg(j.emailSent ? 'Invite email sent (new account).' : 'Invite created; email send failed.');
+      }
       setEmail('');
       setRole('viewer');
       await loadSeats();
@@ -133,7 +139,8 @@ export default function InvitePage() {
                             const res = await fetch('/api/invites/resend', { method: 'POST', headers: { 'content-type':'application/json' }, body: JSON.stringify({ inviteId: i.id }) });
                             const j = await res.json();
                             if (!res.ok) throw new Error(j?.error || 'Failed to resend');
-                            setMsg('Invite resent ✅');
+                            if (j.emailMode === 'password-reset') setMsg('Password reset email sent.');
+                            else setMsg('Invite email resent ✅');
                           } catch (e:any) {
                             setMsg(e.message || 'Error');
                           } finally {

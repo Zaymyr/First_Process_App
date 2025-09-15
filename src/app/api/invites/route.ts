@@ -110,13 +110,28 @@ export async function POST(req: Request) {
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
   const redirectTo = `${base}/accept-invite?inviteId=${invite.id}`;
   const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
-  if (adminErr) {
-    const msg = (adminErr.message || '').toLowerCase();
-    const already = msg.includes('already been registered') || msg.includes('already registered');
-    // On garde l'invite créée; l'utilisateur devra se connecter et accepter manuellement.
-    return NextResponse.json({ ok: true, inviteId: invite.id, autoAccepted: false, emailSent: !adminErr, userExistsNoEmail: already, note: already ? 'User already registered; invite pending manual acceptance.' : undefined });
+  if (!adminErr) {
+    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
   }
-  return NextResponse.json({ ok: true, inviteId: invite.id, autoAccepted: false, emailSent: true });
+  // Si échec car compte déjà existant, on tente un reset password vers la même redirection
+  const msg = (adminErr.message || '').toLowerCase();
+  const already = msg.includes('already been registered') || msg.includes('already registered');
+  if (already) {
+    // resetPasswordForEmail doit être effectué par un client supabase (non admin). On crée un client service-side non authentifié user.
+    try {
+      const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
+      const resetRedirect = `${site}/accept-invite?inviteId=${invite.id}`;
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: resetRedirect });
+      if (!resetErr) {
+        return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
+      }
+      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Password reset email failed: ' + resetErr.message });
+    } catch (e:any) {
+      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Password reset flow exception: ' + e.message });
+    }
+  }
+  // Autre type d’erreur d’envoi → inviter reste en base, email non envoyé
+  return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'invite', note: 'Email send failed: ' + adminErr.message });
 }
 
 export async function GET(req: NextRequest) {
