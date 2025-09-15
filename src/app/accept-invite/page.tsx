@@ -61,7 +61,7 @@ export default function AcceptInvitePage() {
 
   // 2) Wait for a valid session; once we have one, montrer le formulaire
   useEffect(() => {
-    let tries = 0;
+  let tries = 0;
     let stop = false;
 
     const acceptIfReady = async () => {
@@ -75,8 +75,8 @@ export default function AcceptInvitePage() {
         return;
       }
 
-      if (tries++ < 20) {
-        setTimeout(acceptIfReady, 500);
+      if (tries++ < 10) {
+        setTimeout(acceptIfReady, 300);
       } else {
         setPhase('need-session');
         setMsg('Session introuvable. Cliquez à nouveau sur le lien d’invitation ou connectez-vous.');
@@ -144,7 +144,7 @@ export default function AcceptInvitePage() {
         <>
           <p style={{ color: 'crimson' }}>{msg}</p>
           <div style={{ display: 'flex', gap: 8 }}>
-            <a href="/login?next=/accept-invite">Se connecter manuellement</a>
+            <a href={`/login?next=${encodeURIComponent('/accept-invite?inviteId=' + inviteId)}`}>Se connecter manuellement</a>
             <button onClick={() => location.reload()}>Réessayer</button>
           </div>
         </>
