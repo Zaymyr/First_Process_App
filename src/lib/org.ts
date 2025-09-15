@@ -34,6 +34,7 @@ export async function getOrgContext() {
 
   // owners count as editors (usual pricing)
   const list = (members ?? []) as Member[];
+  const owners = list.filter(m => m.role === 'owner').length;
   const editors = list.filter(m => m.role === 'editor' || m.role === 'owner').length;
   const viewers = list.filter(m => m.role === 'viewer').length;
 
@@ -42,8 +43,10 @@ export async function getOrgContext() {
     org,
     sub,
     counts: {
+      owners,
       editors,
       viewers,
+      ownersMax: sub?.seats_editor ?? 0,
       editorsMax: sub?.seats_editor ?? 0,
       viewersMax: sub?.seats_viewer ?? 0,
     },
