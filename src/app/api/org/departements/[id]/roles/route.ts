@@ -17,12 +17,22 @@ async function cookieClient() {
   );
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+type RouteCtx = { params: Promise<{ id: string }> } | { params: { id: string } };
+
+async function resolveParams(ctx: RouteCtx): Promise<{ id: string }> {
+  // Support both older and new Next.js context shapes
+  const p: any = (ctx as any).params;
+  if (p && typeof p.then === 'function') return await p; // Promise
+  return p as { id: string };
+}
+
+export async function GET(_req: NextRequest, ctx: RouteCtx) {
+  const { id } = await resolveParams(ctx);
   const supabase = await cookieClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
-  const depId = Number(params.id);
+  const depId = Number(id);
   if (!depId || Number.isNaN(depId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   const { data: me } = await supabase
@@ -49,11 +59,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ roles: data ?? [] });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const { id } = await resolveParams(ctx);
   const supabase = await cookieClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-  const depId = Number(params.id);
+  const depId = Number(id);
   if (!depId || Number.isNaN(depId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   const { name } = await req.json();
@@ -86,11 +97,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ ok: true, id: data.id });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, ctx: RouteCtx) {
+  const { id } = await resolveParams(ctx);
   const supabase = await cookieClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-  const depId = Number(params.id);
+  const depId = Number(id);
   if (!depId || Number.isNaN(depId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   const { roleId } = await req.json().catch(() => ({}));
   const rid = Number(roleId);
