@@ -12,18 +12,35 @@ const TOP: Item[] = [
   { href: '/org', label: 'Organization', icon: '🏢' },
   { href: '/org/members', label: 'Members', icon: '👥' },
   { href: '/org/invite', label: 'Invite', icon: '✉️' },
-  { href: '/profile', label: 'Profile', icon: '👤' },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const supabase = createClient();
+  const [orgName, setOrgName] = useState<string | null>(null);
 
   useEffect(() => {
     const v = localStorage.getItem('sidebar:collapsed');
     setCollapsed(v === '1');
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      const uid = data.session?.user?.id;
+      if (!uid) return;
+      const { data: membership } = await supabase
+        .from('org_members')
+        .select('organizations(name)')
+        .eq('user_id', uid)
+        .limit(1)
+        .maybeSingle();
+      const rel: any = membership?.organizations;
+      const org = Array.isArray(rel) ? rel[0] : rel;
+      setOrgName(org?.name ?? null);
+    })();
+  }, [supabase]);
 
   function toggle() {
     setCollapsed((c) => {
@@ -33,18 +50,13 @@ export default function Sidebar() {
     });
   }
 
-  async function logout() {
-    await supabase.auth.signOut();
-    window.location.href = '/login?toast=' + encodeURIComponent('Signed out') + '&kind=info';
-  }
-
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} aria-label="Main navigation">
       <div className="sb-top">
         <button className="sb-toggle" onClick={toggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
           {collapsed ? '»' : '«'}
         </button>
-        {!collapsed && <span className="sb-title">Menu</span>}
+        {!collapsed && <span className="sb-title">{orgName ?? '—'}</span>}
       </div>
 
       <nav className="sb-nav">
@@ -58,13 +70,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-
-      <div className="sb-bottom">
-        <button className="nav-link danger" onClick={logout}>
-          <span className="nav-icon" aria-hidden>⎋</span>
-          <span className="nav-label">Logout</span>
-        </button>
-      </div>
     </aside>
   );
 }
