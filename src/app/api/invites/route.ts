@@ -1,5 +1,5 @@
 // src/app/api/invites/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
@@ -102,4 +102,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Invite created but email failed: ${adminErr.message}` }, { status: 500 });
   }
   return NextResponse.json({ ok: true, inviteId: invite.id });
+}
+
+export async function GET(req: NextRequest) {
+  const supabase = await cookieClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+  const { data: me } = await supabase
+    .from('org_members')
+    .select('org_id, role')
+    .eq('user_id', user.id)
+    .limit(1)
+    .maybeSingle();
+  if (!me) return NextResponse.json({ error: 'No org' }, { status: 400 });
+  if (me.role !== 'owner') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { data: invites, error } = await supabase
+    .from('invites')
+    .select('id, email, role, created_at, accepted_at, accepted_by')
+    .eq('org_id', me.org_id)
+    .order('created_at', { ascending: false });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  return NextResponse.json({ invites: invites ?? [] });
 }
