@@ -41,7 +41,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!dep || dep.organization_id !== me.org_id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const { data, error } = await supabase
-    .from('departement_roles')
+    .from('roles')
     .select('id, name, departement_id')
     .eq('departement_id', depId)
     .order('name', { ascending: true });
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!dep || dep.organization_id !== me.org_id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const { data, error } = await supabase
-    .from('departement_roles')
+    .from('roles')
     .insert({ departement_id: depId, name: name.trim() })
     .select('id')
     .single();
@@ -113,7 +113,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!dep || dep.organization_id !== me.org_id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const { error } = await supabase
-    .from('departement_roles')
+    .from('roles')
     .delete()
     .eq('id', rid)
     .eq('departement_id', depId);

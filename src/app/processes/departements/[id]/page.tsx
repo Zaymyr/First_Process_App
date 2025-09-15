@@ -32,7 +32,7 @@ export default async function DeptRolesPage({ params }: { params: { id: string }
   if (!dep || dep.organization_id !== orgId) return <p>Department not found.</p>;
 
   const { data: rolesRaw } = await supabase
-    .from('departement_roles')
+    .from('roles')
     .select('id, name, departement_id')
     .eq('departement_id', depId)
     .order('name', { ascending: true });

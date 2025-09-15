@@ -10,6 +10,7 @@ export default function RolesManager({ deps }: { deps: Dept[] }) {
   const [roles, setRoles] = useState<Role[] | null>(null);
   const [name, setName] = useState('');
   const [pending, setPending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const canManage = useMemo(() => selected !== '', [selected]);
 
@@ -25,7 +26,8 @@ export default function RolesManager({ deps }: { deps: Dept[] }) {
   async function addRole(e: React.FormEvent) {
     e.preventDefault();
     if (selected === '') return;
-    setPending(true);
+  setErrorMsg(null);
+  setPending(true);
     try {
       const res = await fetch(`/api/org/departements/${selected}/roles`, {
         method: 'POST',
@@ -33,7 +35,7 @@ export default function RolesManager({ deps }: { deps: Dept[] }) {
         body: JSON.stringify({ name }),
       });
       const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || 'Failed');
+  if (!res.ok) { setErrorMsg(j?.error || 'Failed'); return; }
       setName('');
       const res2 = await fetch(`/api/org/departements/${selected}/roles`);
       const j2 = await res2.json();
@@ -46,7 +48,8 @@ export default function RolesManager({ deps }: { deps: Dept[] }) {
   async function delRole(id: number) {
     if (selected === '') return;
     if (!confirm('Delete this role?')) return;
-    setPending(true);
+  setErrorMsg(null);
+  setPending(true);
     try {
       const res = await fetch(`/api/org/departements/${selected}/roles`, {
         method: 'DELETE',
@@ -54,7 +57,7 @@ export default function RolesManager({ deps }: { deps: Dept[] }) {
         body: JSON.stringify({ roleId: id }),
       });
       const j = await res.json();
-      if (!res.ok) throw new Error(j?.error || 'Failed');
+  if (!res.ok) { setErrorMsg(j?.error || 'Failed'); return; }
       const res2 = await fetch(`/api/org/departements/${selected}/roles`);
       const j2 = await res2.json();
       if (res2.ok) setRoles(j2.roles as Role[]);
@@ -77,7 +80,8 @@ export default function RolesManager({ deps }: { deps: Dept[] }) {
 
       {canManage && (
         <>
-          <ul className="stack" style={{ gap: 6 }}>
+      {errorMsg && <p className="error" style={{color:'var(--danger-color,#c00)'}}>{errorMsg}</p>}
+      <ul className="stack" style={{ gap: 6 }}>
             {roles?.map((r) => (
               <li key={r.id} className="row" style={{ justifyContent: 'space-between', gap: 12 }}>
                 <span>{r.name}</span>
