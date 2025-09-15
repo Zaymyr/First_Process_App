@@ -2,6 +2,7 @@
 import "./globals.css";
 import AppHeader from "@/components/AppHeader";
 import Toaster from "@/components/Toaster";
+import Sidebar from "@/components/Sidebar";
 
 export const metadata = { title: "First Process App" };
 export const dynamic = 'force-dynamic';
@@ -13,9 +14,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="site-header">
           <div className="container inner"><AppHeader /></div>
         </div>
-        <main>
-          <div className="container">{children}</div>
-        </main>
+        <div className="with-sidebar">
+          <Sidebar />
+          <main>
+            <div className="container">{children}</div>
+          </main>
+        </div>
         <Toaster />
       </body>
     </html>
