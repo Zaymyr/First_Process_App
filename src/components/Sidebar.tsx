@@ -8,13 +8,13 @@ type Item = { href: string; label: string; icon: string };
 
 const TOP: Item[] = [
   { href: '/', label: 'Home', icon: '🏠' },
-  { href: '/processes', label: 'Processes', icon: '🧩' },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [orgOpen, setOrgOpen] = useState<boolean>(true);
+  const [procOpen, setProcOpen] = useState<boolean>(true);
   const supabase = createClient();
   const [orgName, setOrgName] = useState<string | null>(null);
 
@@ -23,6 +23,8 @@ export default function Sidebar() {
     setCollapsed(v === '1');
     const o = localStorage.getItem('sidebar:orgOpen');
     setOrgOpen(o !== '0');
+    const p = localStorage.getItem('sidebar:procOpen');
+    setProcOpen(p !== '0');
   }, []);
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export default function Sidebar() {
   useEffect(() => {
     // Auto-open Organization group when on any /org route
     if (pathname.startsWith('/org')) setOrgOpen(true);
+    if (pathname.startsWith('/processes')) setProcOpen(true);
   }, [pathname]);
 
   function toggle() {
@@ -63,6 +66,14 @@ export default function Sidebar() {
     });
   }
 
+  function toggleProc() {
+    setProcOpen((v) => {
+      const next = !v;
+      localStorage.setItem('sidebar:procOpen', next ? '1' : '0');
+      return next;
+    });
+  }
+
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} aria-label="Navigation principale">
       <div className="sb-top">
@@ -73,7 +84,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="sb-nav">
-        {TOP.map((it) => {
+  {TOP.map((it) => {
           const active = pathname === it.href || (it.href !== '/' && pathname.startsWith(it.href));
           return (
             <Link
@@ -91,6 +102,44 @@ export default function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Processes group */}
+        <button
+          type="button"
+          className={`nav-link group-toggle ${pathname === '/processes' ? 'active' : ''}`}
+          onClick={toggleProc}
+          aria-expanded={procOpen}
+          aria-controls="sb-proc-group"
+        >
+          <span className="nav-icon" aria-hidden>🧩</span>
+          <span className="nav-label">Processes</span>
+          <span className={`caret ${procOpen ? 'open' : ''}`} aria-hidden>▾</span>
+        </button>
+        {procOpen && (
+          <div id="sb-proc-group" className="subnav">
+            {[
+              { href: '/processes', label: 'All processes', icon: '📄' },
+              { href: '/processes/departements', label: 'Departments', icon: '🏷️' },
+            ].map((it) => {
+              const active = pathname === it.href || pathname.startsWith(it.href);
+              return (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  className={`nav-link sub ${active ? 'active' : ''}`}
+                  onClick={() => {
+                    if (typeof document !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
+                      document.body.classList.remove('sidebar-open');
+                    }
+                  }}
+                >
+                  <span className="nav-icon" aria-hidden>{it.icon}</span>
+                  <span className="nav-label">{it.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {/* Organization group */}
         <button

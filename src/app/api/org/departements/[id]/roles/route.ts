@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 
@@ -17,10 +17,13 @@ async function cookieClient() {
   );
 }
 
-export async function GET() {
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = await cookieClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+  const depId = Number(params.id);
+  if (!depId || Number.isNaN(depId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   const { data: me } = await supabase
     .from('org_members')
@@ -30,19 +33,28 @@ export async function GET() {
     .maybeSingle();
   if (!me) return NextResponse.json({ error: 'No org' }, { status: 400 });
 
-  const { data, error } = await supabase
+  const { data: dep } = await supabase
     .from('departements')
-    .select('id, name, organization_id')
-    .eq('organization_id', me.org_id)
+    .select('id, organization_id')
+    .eq('id', depId)
+    .maybeSingle();
+  if (!dep || dep.organization_id !== me.org_id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const { data, error } = await supabase
+    .from('departement_roles')
+    .select('id, name, departement_id')
+    .eq('departement_id', depId)
     .order('name', { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ departements: data ?? [] });
+  return NextResponse.json({ roles: data ?? [] });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = await cookieClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  const depId = Number(params.id);
+  if (!depId || Number.isNaN(depId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   const { name } = await req.json();
   if (!name || typeof name !== 'string' || name.trim().length < 1) {
@@ -56,27 +68,33 @@ export async function POST(req: Request) {
     .limit(1)
     .maybeSingle();
   if (!me) return NextResponse.json({ error: 'No org' }, { status: 400 });
-  if (me.role !== 'owner' && me.role !== 'editor') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  if (me.role !== 'owner' && me.role !== 'editor') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  const { data: dep } = await supabase
+    .from('departements')
+    .select('id, organization_id')
+    .eq('id', depId)
+    .maybeSingle();
+  if (!dep || dep.organization_id !== me.org_id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const { data, error } = await supabase
-    .from('departements')
-    .insert({ name: name.trim(), organization_id: me.org_id })
+    .from('departement_roles')
+    .insert({ departement_id: depId, name: name.trim() })
     .select('id')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true, id: data.id });
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = await cookieClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-
-  const { id } = await req.json().catch(() => ({}));
-  const depId = Number(id);
+  const depId = Number(params.id);
   if (!depId || Number.isNaN(depId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  const { roleId } = await req.json().catch(() => ({}));
+  const rid = Number(roleId);
+  if (!rid || Number.isNaN(rid)) return NextResponse.json({ error: 'Invalid roleId' }, { status: 400 });
 
   const { data: me } = await supabase
     .from('org_members')
@@ -85,22 +103,20 @@ export async function DELETE(req: Request) {
     .limit(1)
     .maybeSingle();
   if (!me) return NextResponse.json({ error: 'No org' }, { status: 400 });
-  if (me.role !== 'owner' && me.role !== 'editor') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  if (me.role !== 'owner' && me.role !== 'editor') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  // ensure departement belongs to org
   const { data: dep } = await supabase
     .from('departements')
     .select('id, organization_id')
     .eq('id', depId)
     .maybeSingle();
-  if (!dep) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  if (dep.organization_id !== me.org_id) {
-    return NextResponse.json({ error: 'Departement not in your organization' }, { status: 400 });
-  }
+  if (!dep || dep.organization_id !== me.org_id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const { error } = await supabase.from('departements').delete().eq('id', depId);
+  const { error } = await supabase
+    .from('departement_roles')
+    .delete()
+    .eq('id', rid)
+    .eq('departement_id', depId);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ ok: true });
 }
