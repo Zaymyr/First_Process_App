@@ -47,3 +47,10 @@ export async function middleware(req: NextRequest) {
 
   return res;
 }
+
+export const config = {
+  matcher: [
+    // Exécuter sur toutes les routes sauf assets statiques et API
+    '/((?!_next/static|_next/image|favicon.ico|assets|public|api|.*\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map)).*)',
+  ],
+};
