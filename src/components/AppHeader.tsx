@@ -38,8 +38,21 @@ export default function AppHeader() {
   return (
     <header className="spaced" style={{ height: 56 }}>
       <nav className="row" style={{ alignItems:'center', gap: 16 }}>
+        {/* Mobile hamburger */}
+        <button
+          className="mobile-only btn btn-outline"
+          aria-label="Ouvrir le menu"
+          onClick={() => {
+            if (typeof document !== 'undefined') {
+              document.body.classList.toggle('sidebar-open');
+            }
+          }}
+          style={{ padding: '6px 10px' }}
+        >
+          ☰
+        </button>
         <Link href="/" className="brand" style={{ fontSize: 16 }}>First Process</Link>
-        <Link href="/" className="link" aria-label="Home">Home</Link>
+        <Link href="/" className="link hide-mobile" aria-label="Home">Home</Link>
       </nav>
       <div>
         <AuthStatus />

@@ -51,7 +51,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} aria-label="Main navigation">
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} aria-label="Navigation principale">
       <div className="sb-top">
         <button className="sb-toggle" onClick={toggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
           {collapsed ? '»' : '«'}
@@ -63,7 +63,16 @@ export default function Sidebar() {
         {TOP.map((it) => {
           const active = pathname === it.href || (it.href !== '/' && pathname.startsWith(it.href));
           return (
-            <Link key={it.href} href={it.href} className={`nav-link ${active ? 'active' : ''}`}>
+            <Link
+              key={it.href}
+              href={it.href}
+              className={`nav-link ${active ? 'active' : ''}`}
+              onClick={() => {
+                if (typeof document !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
+                  document.body.classList.remove('sidebar-open');
+                }
+              }}
+            >
               <span className="nav-icon" aria-hidden>{it.icon}</span>
               <span className="nav-label">{it.label}</span>
             </Link>

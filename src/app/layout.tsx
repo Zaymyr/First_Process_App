@@ -20,6 +20,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="container">{children}</div>
           </main>
         </div>
+        {/* Backdrop for mobile sidebar */}
+        <div
+          className="sb-backdrop"
+          onClick={() => {
+            if (typeof document !== 'undefined') {
+              document.body.classList.remove('sidebar-open');
+            }
+          }}
+        />
         <Toaster />
       </body>
     </html>
