@@ -120,6 +120,7 @@ export default function Sidebar() {
             {[
               { href: '/processes', label: 'All processes', icon: '📄' },
               { href: '/processes/departements', label: 'Departments', icon: '🏷️' },
+              { href: '/processes/roles', label: 'Roles', icon: '🧑‍💼' },
             ].map((it) => {
               const active = pathname === it.href || pathname.startsWith(it.href);
               return (
