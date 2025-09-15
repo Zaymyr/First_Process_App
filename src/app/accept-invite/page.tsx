@@ -16,9 +16,11 @@ export default function AcceptInvitePage() {
   const [phase, setPhase] = useState<Phase>('checking');
   const [msg, setMsg] = useState<string>('Finishing your invite…');
 
-  // 1) If Supabase sent implicit tokens in the URL fragment, bounce through /auth/callback
+  // 1) If Supabase sent tokens (hash or query) or a PKCE code, bounce through /auth/callback
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Case A: tokens in URL fragment (#access_token)
     if (location.hash && location.hash.startsWith('#access_token')) {
       const frag = new URLSearchParams(location.hash.slice(1));
       const q = new URLSearchParams();
@@ -35,6 +37,17 @@ export default function AcceptInvitePage() {
         const v = frag.get(key);
         if (v) q.set(key, v);
       }
+      location.replace(`/auth/callback?${q.toString()}`);
+      return;
+    }
+
+    // Case B: PKCE code in query, or tokens provided in query
+    const url = new URL(location.href);
+    const hasCode = url.searchParams.has('code');
+    const hasTokensInQuery = url.searchParams.has('access_token') && url.searchParams.has('refresh_token');
+    if (hasCode || hasTokensInQuery) {
+      const q = new URLSearchParams(url.search);
+      q.set('next', `/accept-invite?inviteId=${inviteId}`);
       location.replace(`/auth/callback?${q.toString()}`);
     }
   }, [inviteId]);
