@@ -13,7 +13,7 @@ export default function AcceptInvitePage() {
   const inviteId = params.get('inviteId') ?? '';
   const supabase = useMemo(() => createClient(), []);
 
-  const [phase, setPhase] = useState<Phase>('password');
+  const [phase, setPhase] = useState<Phase>('checking');
   const [msg, setMsg] = useState<string>('');
   const [email, setEmail] = useState<string | null>(null);
   const [password, setPassword] = useState('');
@@ -59,7 +59,7 @@ export default function AcceptInvitePage() {
     }
   }, [inviteId]);
 
-  // 2) Lire la session pour l'email (si disponible) sans bloquer l'UI
+  // 2) Lire la session; si déjà connecté on saute le set password
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -67,6 +67,12 @@ export default function AcceptInvitePage() {
       if (cancelled) return;
       const u = data.session?.user;
       setEmail(u?.email ?? null);
+      if (u) {
+        setPhase('accepting');
+        await acceptInvite();
+      } else {
+        setPhase('password');
+      }
     })();
     return () => { cancelled = true; };
   }, [supabase]);
@@ -128,7 +134,7 @@ export default function AcceptInvitePage() {
   return (
     <section style={{ display: 'grid', gap: 16, maxWidth: 520 }}>
       <h2>Finalisation de l’invitation…</h2>
-      {phase === 'checking' && <p>Vérification de la session…</p>}
+  {phase === 'checking' && <p>Vérification de la session…</p>}
       {phase === 'need-session' && (
         <>
           <p style={{ color: 'crimson' }}>{msg}</p>
@@ -138,7 +144,7 @@ export default function AcceptInvitePage() {
           </div>
         </>
       )}
-      {phase === 'password' && (
+  {phase === 'password' && (
         <>
           <p>{email ? `Bonjour ${email}, définissez un mot de passe pour finaliser.` : 'Définissez un mot de passe pour finaliser.'}</p>
           <form onSubmit={onSetPasswordAndAccept} style={{ display: 'grid', gap: 8 }}>
