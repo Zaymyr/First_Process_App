@@ -29,12 +29,12 @@ export default function OrgNameForm({ initial }: { initial: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} style={{ display:'flex', gap:8 }}>
-      <input value={name} onChange={(e)=>setName(e.target.value)} placeholder="Organization name" />
-      <button type="submit" disabled={pending || !name.trim()}>
+    <form onSubmit={onSubmit} className="row">
+      <input className="input" value={name} onChange={(e)=>setName(e.target.value)} placeholder="Organization name" />
+      <button className="btn" type="submit" disabled={pending || !name.trim()}>
         {pending ? 'Saving…' : 'Save'}
       </button>
-      {msg && <span style={{marginLeft:8, color:'#0a0'}}>{msg}</span>}
+      {msg && <span className="muted" style={{marginLeft:8}}>{msg}</span>}
     </form>
   );
 }

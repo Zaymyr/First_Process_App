@@ -56,13 +56,13 @@ export default function InvitePage() {
   }
 
   return (
-    <section style={{display:'grid', gap:12, maxWidth:480}}>
+    <section className="stack" style={{maxWidth:480}}>
       <h2>Invite user</h2>
       {err && <p style={{color:'crimson'}}>{err}</p>}
-      <form onSubmit={onSubmit} style={{display:'grid', gap:8}}>
-        <input type="email" placeholder="user@example.com" value={email}
+      <form onSubmit={onSubmit} className="stack">
+        <input className="input" type="email" placeholder="user@example.com" value={email}
                onChange={e=>setEmail(e.target.value)} required />
-        <select value={role} onChange={e=>setRole(e.target.value as any)}>
+        <select className="select" value={role} onChange={e=>setRole(e.target.value as any)}>
           <option value="viewer" disabled={viewerFull}>
             Viewer{seats ? ` ${seats.viewers.used}/${seats.viewers.limit ?? '∞'}` : ''}
           </option>
@@ -73,11 +73,11 @@ export default function InvitePage() {
         {noSeatsAvailable && (
           <p style={{ color: 'crimson' }}>Aucun siège disponible. Mettez à niveau votre plan pour inviter.</p>
         )}
-        <button type="submit" disabled={pending || noSeatsAvailable}>
+        <button className="btn" type="submit" disabled={pending || noSeatsAvailable}>
           {pending ? 'Sending…' : 'Send invite'}
         </button>
       </form>
-      {msg && <p style={{color:'#0a0'}}>{msg}</p>}
+      {msg && <p className="muted">{msg}</p>}
     </section>
   );
 }

@@ -9,19 +9,19 @@ export default async function OrgPage() {
   if (!org) return <p>No organization found for your account.</p>;
 
   return (
-    <section style={{display:'grid', gap:12, maxWidth:640}}>
+    <section className="stack" style={{maxWidth:640}}>
       <h2>Organization</h2>
       <OrgNameForm initial={org.name ?? ''} />
 
-      <div style={{marginTop:12, padding:12, border:'1px solid #eee'}}>
+      <div className="card" style={{marginTop:12}}>
         <h3>Plan</h3>
-        <p>{sub?.plan_id ?? '—'} · status: {sub?.status ?? '—'}</p>
-        <p>Owners: {counts?.owners}/{counts?.ownersMax} · Creators: {counts?.editors}/{counts?.editorsMax} · Viewers: {counts?.viewers}/{counts?.viewersMax}</p>
+        <p className="muted">{sub?.plan_id ?? '—'} · status: {sub?.status ?? '—'}</p>
+        <p>Owners: <span className="tag">{counts?.owners}/{counts?.ownersMax}</span> · Creators: <span className="tag">{counts?.editors}/{counts?.editorsMax}</span> · Viewers: <span className="tag">{counts?.viewers}/{counts?.viewersMax}</span></p>
       </div>
 
-      <div style={{display:'flex', gap:12}}>
-        <a href="/org/members">Manage members</a>
-        <a href="/org/invite">Invite users</a>
+      <div className="row">
+        <a className="btn btn-outline" href="/org/members">Manage members</a>
+        <a className="btn btn-outline" href="/org/invite">Invite users</a>
       </div>
     </section>
   );

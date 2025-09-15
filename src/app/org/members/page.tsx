@@ -35,19 +35,25 @@ export default function MembersPage() {
   if (err) return <p style={{color:'crimson'}}>{err}</p>;
   if (!rows) return <p>Loading…</p>;
   return (
-    <section>
-      <h2>Members</h2>
-      <ul>
-        {rows.map(m=>(
-          <li key={m.user_id} style={{margin:'6px 0'}}>
-            {m.name ? `${m.name}${m.email ? ` (${m.email})` : ''}` : (m.email || m.user_id)} — <strong>{m.role === 'editor' ? 'creator' : m.role}</strong>
-            <button onClick={()=>changeRole(m.user_id,'owner')} style={{marginLeft:8}}>Make owner</button>
-            <button onClick={()=>changeRole(m.user_id,'editor')} style={{marginLeft:8}}>Make creator</button>
-            <button onClick={()=>changeRole(m.user_id,'viewer')} style={{marginLeft:8}}>Make viewer</button>
-            <button onClick={()=>remove(m.user_id)} style={{marginLeft:8, color:'crimson'}}>Remove</button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
+      <section className="stack">
+        <h2>Members</h2>
+        <ul className="stack">
+          {rows.map(m=> (
+            <li key={m.user_id} className="card" style={{display:'flex', gap:12, alignItems:'center', justifyContent:'space-between'}}>
+              <div>
+                <div><strong>{m.name || m.email || m.user_id}</strong></div>
+                <div className="muted" style={{fontSize:13}}>{m.email}</div>
+              </div>
+              <div className="row">
+                <span className="tag">{m.role === 'editor' ? 'creator' : m.role}</span>
+                <button className="btn btn-outline" onClick={()=>changeRole(m.user_id,'owner')}>Make owner</button>
+                <button className="btn btn-outline" onClick={()=>changeRole(m.user_id,'editor')}>Make creator</button>
+                <button className="btn btn-outline" onClick={()=>changeRole(m.user_id,'viewer')}>Make viewer</button>
+                <button className="btn btn-danger" onClick={()=>remove(m.user_id)}>Remove</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
 }

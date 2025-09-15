@@ -36,11 +36,11 @@ export default function AppHeader() {
   if (isAuthPage && !signedIn) return null;
 
   return (
-    <header style={{ display: 'flex', gap: 16, padding: 12, borderBottom: '1px solid #eee' }}>
-      <nav style={{ display: 'flex', gap: 12 }}>
-        <Link href="/">Home</Link>
+    <header className="spaced" style={{ height: 56 }}>
+      <nav className="row">
+        <Link href="/" className="tag" aria-label="Home">Home</Link>
       </nav>
-      <div style={{ marginLeft: 'auto' }}>
+      <div>
         <AuthStatus />
       </div>
     </header>
