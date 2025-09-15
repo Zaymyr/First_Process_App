@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
-import RoleForm from '@/app/processes/parts/RoleForm';
-import RoleDeleteButton from '@/app/processes/parts/RoleDeleteButton';
+import RoleForm from '../../parts/RoleForm';
+import RoleDeleteButton from '../../parts/RoleDeleteButton';
 
 type Role = { id: number; name: string; departement_id: number };
 

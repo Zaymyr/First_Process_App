@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase-server';
-import RolesManager from '@/app/processes/parts/RolesManager';
+import RolesManager from '@/app/processes/parts/RolesManager.tsx';
 
 type Dept = { id: number; name: string | null };
 
