@@ -39,7 +39,7 @@ export default function AppHeader() {
     <header className="spaced" style={{ height: 56 }}>
       <nav className="row" style={{ alignItems:'center', gap: 16 }}>
         <Link href="/" className="brand" style={{ fontSize: 16 }}>First Process</Link>
-        <Link href="/" className="pill" aria-label="Home">Home</Link>
+        <Link href="/" className="link" aria-label="Home">Home</Link>
       </nav>
       <div>
         <AuthStatus />
