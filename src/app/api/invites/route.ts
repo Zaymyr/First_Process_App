@@ -60,16 +60,18 @@ export async function POST(req: Request) {
   if (invErr) return NextResponse.json({ error: invErr.message }, { status: 400 });
 
   const admin = adminClient();
-  const url = new URL(req.url);
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? `${url.protocol}//${url.host}`;
-  const redirectTo =
-    `${origin}/auth/callback?next=` +
-    encodeURIComponent(`/accept-invite?inviteId=${invite.id}`);
+  // Normalize base URL (remove trailing slashes)
+const url = new URL(req.url);
+const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
 
-  const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo,
-    data: { invited_role: role },
-  });
+// IMPORTANT: don't encode `next` yourself — Supabase will encode the whole redirect_to
+const redirectTo = `${base}/auth/callback?next=/accept-invite?inviteId=${invite.id}`;
+
+const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, {
+  redirectTo,
+  data: { invited_role: role },
+});
+
   if (adminErr) {
     return NextResponse.json({ error: `Invite created but email failed: ${adminErr.message}` }, { status: 500 });
   }
