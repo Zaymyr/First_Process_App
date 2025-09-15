@@ -52,11 +52,14 @@ export default function AcceptInvitePage() {
     if (hasCode || hasTokensInQuery) {
       const q = new URLSearchParams(url.search);
       q.set('next', `/accept-invite?inviteId=${inviteId}`);
-      location.replace(`/auth/callback?${q.toString()}`);
+      // Nettoie l'URL courante pour éviter clignotement et boucles
+      window.history.replaceState({}, '', `/accept-invite?inviteId=${inviteId}`);
+      location.assign(`/auth/callback?${q.toString()}`);
+      return;
     }
   }, [inviteId]);
 
-  // 2) Wait for a valid session; once we have one, show password form
+  // 2) Wait for a valid session; once we have one, montrer le formulaire
   useEffect(() => {
     let tries = 0;
     let stop = false;

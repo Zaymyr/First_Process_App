@@ -88,8 +88,8 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
 
-  // Rediriger d'abord vers /auth/callback afin d'échanger le code côté serveur
-  const redirectTo = `${base}/auth/callback?next=/accept-invite?inviteId=${invite.id}`;
+  // Rediriger directement vers /accept-invite afin que les tokens (#access_token) soient capturés côté client
+  const redirectTo = `${base}/accept-invite?inviteId=${invite.id}`;
 
   const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo,
