@@ -1,5 +1,6 @@
 // src/app/processes/page.tsx
 import ProcessForm from './ProcessForm';
+import DepartementForm from './DepartementForm';
 import ProcessItem from './ProcessItem';
 import { createClient } from '@/lib/supabase-server';
 import { redirect } from 'next/navigation';
@@ -70,6 +71,22 @@ if (!org) {
   return (
     <section className="stack" style={{ maxWidth: 920 }}>
       <h2>Processes</h2>
+
+      <div className="card stack">
+        <div className="spaced">
+          <h3>Departments</h3>
+        </div>
+        <ul className="stack" style={{ gap: 6 }}>
+          {departements.map((d) => (
+            <li key={d.id} className="row" style={{ justifyContent: 'space-between' }}>
+              <span>{d.name ?? `Dept ${d.id}`}</span>
+              <span className="muted">#{d.id}</span>
+            </li>
+          ))}
+          {departements.length === 0 && <li className="muted">No departments yet.</li>}
+        </ul>
+        <DepartementForm />
+      </div>
 
       <div className="card">
         <ProcessForm orgId={org.id} departements={departements} />
