@@ -76,13 +76,24 @@ export async function POST(req: Request) {
   const admin = adminClient();
   const lowerEmail = email.toLowerCase().trim();
 
-  // Vérifier si un utilisateur existe déjà avec cet email
-  let existingUserId: string | null = null;
-  try {
-    const { data: list } = await (admin as any).auth.admin.listUsers({ perPage: 1, page: 1, filter: { email: lowerEmail } });
-    const found = list?.users?.find((u: any) => (u.email || '').toLowerCase() === lowerEmail);
-    if (found) existingUserId = found.id;
-  } catch { /* ignore */ }
+  async function findUserIdByEmail(target: string): Promise<string | null> {
+    // Parcours des pages jusqu'à trouver (limite de sécurité 10 pages × 100 = 1000 users)
+    for (let page = 1; page <= 10; page++) {
+      try {
+        const { data, error } = await (admin as any).auth.admin.listUsers({ perPage: 100, page });
+        if (error) break;
+        const users = data?.users || [];
+        const match = users.find((u: any) => (u.email || '').toLowerCase() === target);
+        if (match) return match.id;
+        if (users.length < 100) break; // dernière page
+      } catch {
+        break;
+      }
+    }
+    return null;
+  }
+
+  const existingUserId = await findUserIdByEmail(lowerEmail);
 
   if (existingUserId) {
     // Si déjà membre: éventuellement upgrade viewer->editor
@@ -137,12 +148,7 @@ export async function POST(req: Request) {
   // Utilisateur n'existe pas encore -> créer une invite classique
   const { data: invite, error: invErr } = await supabase
     .from('invites')
-    .insert({
-      org_id: me.org_id,
-      email: lowerEmail,
-      role,
-      invited_by: user.id,
-    })
+    .insert({ org_id: me.org_id, email: lowerEmail, role, invited_by: user.id })
     .select('id')
     .single();
   if (invErr) return NextResponse.json({ error: invErr.message }, { status: 400 });
@@ -152,7 +158,61 @@ export async function POST(req: Request) {
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
   const redirectTo = `${base}/accept-invite?inviteId=${invite.id}`;
   const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
-  if (adminErr) return NextResponse.json({ error: `Invite created but email failed: ${adminErr.message}` }, { status: 500 });
+  if (adminErr) {
+    const msg = (adminErr.message || '').toLowerCase();
+    const already = msg.includes('already been registered') || msg.includes('already registered');
+    if (already) {
+      // Fallback: trouver user, supprimer l'invite et créer membership direct
+      const fallbackId = await findUserIdByEmail(lowerEmail);
+      if (fallbackId) {
+        // Supprime l'invite devenue inutile
+        await admin.from('invites').delete().eq('id', invite.id);
+        // Vérifier si déjà membre
+        const { data: membership } = await admin
+          .from('org_members')
+          .select('user_id, role')
+          .eq('org_id', me.org_id)
+          .eq('user_id', fallbackId)
+          .maybeSingle();
+        if (!membership) {
+          const usedEditors = listMembers.filter(m => m.role === 'owner' || m.role === 'editor').length;
+          const usedViewers = listMembers.filter(m => m.role === 'viewer').length;
+          if (hasActiveSub) {
+            if (role === 'editor' && usedEditors >= (sub!.seats_editor ?? 0)) {
+              return NextResponse.json({ error: 'No editor seats available' }, { status: 409 });
+            }
+            if (role === 'viewer' && usedViewers >= (sub!.seats_viewer ?? 0)) {
+              return NextResponse.json({ error: 'No viewer seats available' }, { status: 409 });
+            }
+          }
+          const { error: insErr } = await admin
+            .from('org_members')
+            .insert({ org_id: me.org_id, user_id: fallbackId, role, can_edit: role !== 'viewer' });
+          if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 });
+        } else if (membership.role !== role) {
+          const usedEditors = listMembers.filter(m => m.role === 'owner' || m.role === 'editor').length;
+          const usedViewers = listMembers.filter(m => m.role === 'viewer').length;
+          if (hasActiveSub) {
+            if (role === 'editor' && usedEditors >= (sub!.seats_editor ?? 0)) {
+              return NextResponse.json({ error: 'No editor seats available for upgrade' }, { status: 409 });
+            }
+            if (role === 'viewer' && usedViewers >= (sub!.seats_viewer ?? 0)) {
+              return NextResponse.json({ error: 'No viewer seats available for downgrade swap' }, { status: 409 });
+            }
+          }
+          const can_edit = role !== 'viewer';
+          const { error: upErr } = await admin
+            .from('org_members')
+            .update({ role, can_edit })
+            .eq('org_id', me.org_id)
+            .eq('user_id', fallbackId);
+          if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 });
+        }
+        return NextResponse.json({ ok: true, autoAccepted: true, userId: fallbackId, viaFallback: true });
+      }
+    }
+    return NextResponse.json({ error: `Invite created but email failed: ${adminErr.message}` }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, inviteId: invite.id, autoAccepted: false });
 }
 
