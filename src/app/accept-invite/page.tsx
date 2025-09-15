@@ -13,8 +13,8 @@ export default function AcceptInvitePage() {
   const inviteId = params.get('inviteId') ?? '';
   const supabase = useMemo(() => createClient(), []);
 
-  const [phase, setPhase] = useState<Phase>('checking');
-  const [msg, setMsg] = useState<string>('Finishing your invite…');
+  const [phase, setPhase] = useState<Phase>('password');
+  const [msg, setMsg] = useState<string>('');
   const [email, setEmail] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -59,33 +59,17 @@ export default function AcceptInvitePage() {
     }
   }, [inviteId]);
 
-  // 2) Wait for a valid session; once we have one, montrer le formulaire
+  // 2) Lire la session pour l'email (si disponible) sans bloquer l'UI
   useEffect(() => {
-  let tries = 0;
-    let stop = false;
-
-    const acceptIfReady = async () => {
+    let cancelled = false;
+    (async () => {
       const { data } = await supabase.auth.getSession();
-      if (stop) return;
-
-      if (data.session) {
-        const u = data.session.user;
-        setEmail(u?.email ?? null);
-        setPhase('password');
-        return;
-      }
-
-      if (tries++ < 10) {
-        setTimeout(acceptIfReady, 300);
-      } else {
-        setPhase('need-session');
-        setMsg('Session introuvable. Cliquez à nouveau sur le lien d’invitation ou connectez-vous.');
-      }
-    };
-
-    if (inviteId) acceptIfReady();
-    return () => { stop = true; };
-  }, [inviteId, supabase, router]);
+      if (cancelled) return;
+      const u = data.session?.user;
+      setEmail(u?.email ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [supabase]);
 
   async function acceptInvite() {
     setPhase('accepting');
@@ -115,9 +99,14 @@ export default function AcceptInvitePage() {
     try {
       setBusy(true);
       setMsg('Définition du mot de passe…');
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) {
-        setMsg(error.message);
+      const res = await fetch('/api/auth/password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        setMsg(j?.error || 'Impossible de définir le mot de passe.');
         setPhase('error');
         setBusy(false);
         return;
