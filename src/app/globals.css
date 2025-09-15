@@ -9,15 +9,15 @@
 
   /* Surfaces */
   --background: #0b0b10;
-  --surface: #0f1117;
-  --panel: #141826;
-  --border: #23283a;
+  --surface: #0e1116;
+  --panel: #111523;
+  --border: #1e2435;
   --muted: #9aa4bd;
   --foreground: #e6e9f2;
 
   /* Radii & shadows */
   --radius: 10px;
-  --shadow: 0 10px 30px rgba(2,6,23,.25);
+  --shadow: 0 8px 28px rgba(2,6,23,.28);
 }
 
 /* Light mode (optional) */
@@ -102,8 +102,16 @@ h3 { font-size: 18px; font-weight: 700; }
 .menu-item:hover { background: rgba(255,255,255,.05); }
 
 /* Header */
-.site-header { position: sticky; top: 0; backdrop-filter: blur(6px); background: rgba(15,17,23,.6); border-bottom: 1px solid var(--border); z-index: 20; }
+.site-header { position: sticky; top: 0; backdrop-filter: blur(8px); background: rgba(15,17,23,.65); border-bottom: 1px solid var(--border); z-index: 20; }
 .site-header .inner { height: 56px; }
 
 /* Main spacing */
 main { padding: 20px 0; }
+
+/* Nav pills */
+.pill { background: rgba(107,92,255,.18); color: #e8e9ff; border: 1px solid rgba(107,92,255,.3); padding: 6px 10px; border-radius: 999px; font-weight: 600; }
+.pill:hover { background: rgba(107,92,255,.26); }
+
+/* Lists */
+ul { list-style: none; padding-left: 0; }
+ul li::before { content: '•'; color: #c7c9ff; margin-right: 10px; }
