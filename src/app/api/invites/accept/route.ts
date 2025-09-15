@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 async function sb() {
   const c = await cookies();
@@ -19,13 +20,19 @@ async function sb() {
 
 export async function POST(req: Request) {
   const supabase = await sb();
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
   const { inviteId } = await req.json();
 
-  const { data: inv, error } = await supabase
+  // Read invite with admin client (bypass RLS), we'll still validate email below
+  const { data: inv, error } = await admin
     .from('invites')
     .select('*')
     .eq('id', inviteId)
