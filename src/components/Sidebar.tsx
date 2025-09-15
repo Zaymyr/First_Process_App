@@ -9,20 +9,20 @@ type Item = { href: string; label: string; icon: string };
 const TOP: Item[] = [
   { href: '/', label: 'Home', icon: '🏠' },
   { href: '/processes', label: 'Processes', icon: '🧩' },
-  { href: '/org', label: 'Organization', icon: '🏢' },
-  { href: '/org/members', label: 'Members', icon: '👥' },
-  { href: '/org/invite', label: 'Invite', icon: '✉️' },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [orgOpen, setOrgOpen] = useState<boolean>(true);
   const supabase = createClient();
   const [orgName, setOrgName] = useState<string | null>(null);
 
   useEffect(() => {
     const v = localStorage.getItem('sidebar:collapsed');
     setCollapsed(v === '1');
+    const o = localStorage.getItem('sidebar:orgOpen');
+    setOrgOpen(o !== '0');
   }, []);
 
   useEffect(() => {
@@ -42,10 +42,23 @@ export default function Sidebar() {
     })();
   }, [supabase]);
 
+  useEffect(() => {
+    // Auto-open Organization group when on any /org route
+    if (pathname.startsWith('/org')) setOrgOpen(true);
+  }, [pathname]);
+
   function toggle() {
     setCollapsed((c) => {
       const next = !c;
       localStorage.setItem('sidebar:collapsed', next ? '1' : '0');
+      return next;
+    });
+  }
+
+  function toggleOrg() {
+    setOrgOpen((v) => {
+      const next = !v;
+      localStorage.setItem('sidebar:orgOpen', next ? '1' : '0');
       return next;
     });
   }
@@ -78,6 +91,46 @@ export default function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Organization group */}
+        <button
+          type="button"
+          className={`nav-link group-toggle ${pathname === '/org' ? 'active' : ''}`}
+          onClick={toggleOrg}
+          aria-expanded={orgOpen}
+          aria-controls="sb-org-group"
+        >
+          <span className="nav-icon" aria-hidden>🏢</span>
+          <span className="nav-label">Organization</span>
+          <span className={`caret ${orgOpen ? 'open' : ''}`} aria-hidden>▾</span>
+        </button>
+
+        {orgOpen && (
+          <div id="sb-org-group" className="subnav">
+            {[
+              { href: '/org/members', label: 'Members', icon: '👥' },
+              { href: '/org/invite', label: 'Invite', icon: '✉️' },
+              { href: '/org', label: 'Overview', icon: '📊' },
+            ].map((it) => {
+              const active = pathname === it.href || (it.href !== '/org' && pathname.startsWith(it.href));
+              return (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  className={`nav-link sub ${active ? 'active' : ''}`}
+                  onClick={() => {
+                    if (typeof document !== 'undefined' && window.matchMedia('(max-width: 900px)').matches) {
+                      document.body.classList.remove('sidebar-open');
+                    }
+                  }}
+                >
+                  <span className="nav-icon" aria-hidden>{it.icon}</span>
+                  <span className="nav-label">{it.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </nav>
     </aside>
   );
