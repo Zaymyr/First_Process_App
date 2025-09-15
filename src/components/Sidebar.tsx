@@ -108,11 +108,12 @@ export default function Sidebar() {
         {orgOpen && (
           <div id="sb-org-group" className="subnav">
             {[
+              { href: '/org/plan', label: 'Plan', icon: '📊' },
+              { href: '/org/settings', label: 'Settings', icon: '⚙️' },
               { href: '/org/members', label: 'Members', icon: '👥' },
               { href: '/org/invite', label: 'Invite', icon: '✉️' },
-              { href: '/org', label: 'Overview', icon: '📊' },
             ].map((it) => {
-              const active = pathname === it.href || (it.href !== '/org' && pathname.startsWith(it.href));
+              const active = pathname === it.href || pathname.startsWith(it.href);
               return (
                 <Link
                   key={it.href}
