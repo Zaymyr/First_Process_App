@@ -3,6 +3,7 @@ import "./globals.css";
 import AppHeader from "@/components/AppHeader";
 import Toaster from "@/components/Toaster";
 import Sidebar from "@/components/Sidebar";
+import SidebarBackdrop from "@/components/SidebarBackdrop";
 
 export const metadata = { title: "First Process App" };
 export const dynamic = 'force-dynamic';
@@ -20,15 +21,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="container">{children}</div>
           </main>
         </div>
-        {/* Backdrop for mobile sidebar */}
-        <div
-          className="sb-backdrop"
-          onClick={() => {
-            if (typeof document !== 'undefined') {
-              document.body.classList.remove('sidebar-open');
-            }
-          }}
-        />
+        {/* Backdrop for mobile sidebar (client component) */}
+        <SidebarBackdrop />
         <Toaster />
       </body>
     </html>
