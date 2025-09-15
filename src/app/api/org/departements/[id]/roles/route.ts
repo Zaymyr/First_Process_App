@@ -79,7 +79,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const { data, error } = await supabase
     .from('roles')
-    .insert({ departement_id: depId, name: name.trim() })
+    .insert({ departement_id: depId, organization_id: me.org_id, name: name.trim() })
     .select('id')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
