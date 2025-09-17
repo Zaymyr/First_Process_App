@@ -4,7 +4,21 @@ import { createServerClient } from '@supabase/ssr';
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
-  const next = url.searchParams.get('next') || '/';
+  const rawNext = url.searchParams.get('next') || '/';
+  // Robustly decode next in case it's double-encoded (e.g., %252F...)
+  let next = rawNext;
+  try {
+    // Decode at most twice to avoid over-decoding
+    const once = decodeURIComponent(next);
+    if (once !== next) {
+      next = once;
+      const twice = decodeURIComponent(next);
+      // Only accept the second decode if it makes sense (starts with '/' or known path markers)
+      if (twice.startsWith('/') || twice.startsWith('http')) next = twice;
+    }
+  } catch {}
+  // Ensure it is a relative path
+  if (!next.startsWith('/')) next = '/' + next.replace(/^%2F/i, '');
   const res = NextResponse.redirect(new URL(next, url.origin));
 
   const supabase = createServerClient(

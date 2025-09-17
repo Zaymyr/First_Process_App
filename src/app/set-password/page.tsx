@@ -27,13 +27,14 @@ export default function SetPasswordPage() {
     // fragment tokens (implicit flow)
     if (location.hash && location.hash.startsWith('#access_token')) {
       const frag = new URLSearchParams(location.hash.slice(1));
-      const q = new URLSearchParams();
-      q.set('next', `/set-password?inviteId=${inviteId}`);
+  const q = new URLSearchParams();
+  const nextPath = `/set-password?inviteId=${inviteId}${emailHint ? `&em=${encodeURIComponent(emailHint)}` : ''}`;
+  q.set('next', nextPath);
       for (const k of ['access_token','refresh_token','expires_in','expires_at','token_type','type','provider_token']) {
         const v = frag.get(k); if (v) q.set(k, v);
       }
       // Nettoyage URL et synchro cookies serveur
-      history.replaceState({}, '', `/set-password?inviteId=${inviteId}`);
+  history.replaceState({}, '', nextPath);
       location.assign(`/auth/callback?${q.toString()}`);
       return;
     }
@@ -42,9 +43,10 @@ export default function SetPasswordPage() {
     const hasCode = url.searchParams.has('code');
     const hasTokensInQuery = url.searchParams.has('access_token') && url.searchParams.has('refresh_token');
     if (hasCode || hasTokensInQuery) {
-      const q = new URLSearchParams(url.search);
-      q.set('next', `/set-password?inviteId=${inviteId}`);
-      history.replaceState({}, '', `/set-password?inviteId=${inviteId}`);
+  const q = new URLSearchParams(url.search);
+  const nextPath = `/set-password?inviteId=${inviteId}${emailHint ? `&em=${encodeURIComponent(emailHint)}` : ''}`;
+  q.set('next', nextPath);
+  history.replaceState({}, '', nextPath);
       location.assign(`/auth/callback?${q.toString()}`);
       return;
     }
@@ -54,7 +56,8 @@ export default function SetPasswordPage() {
     if (hasOtpToken) {
       const token = url.searchParams.get('token')!;
       const type = url.searchParams.get('type')! as 'recovery'|'signup'|'magiclink'|'email_change';
-      history.replaceState({}, '', `/set-password?inviteId=${inviteId}`);
+  const nextPath = `/set-password?inviteId=${inviteId}${emailHint ? `&em=${encodeURIComponent(emailHint)}` : ''}`;
+  history.replaceState({}, '', nextPath);
       (async () => {
         try {
           await supabase.auth.verifyOtp({ token_hash: token, type });
@@ -63,7 +66,7 @@ export default function SetPasswordPage() {
           const at = cur.data.session?.access_token;
           const rt = (cur.data.session as any)?.refresh_token;
           if (at && rt) {
-            const next = `/set-password?inviteId=${encodeURIComponent(inviteId)}`;
+            const next = `/set-password?inviteId=${encodeURIComponent(inviteId)}${emailHint ? `&em=${encodeURIComponent(emailHint)}` : ''}`;
             const q = new URLSearchParams({ access_token: at, refresh_token: rt, next });
             location.replace(`/auth/callback?${q.toString()}`);
             return;
@@ -81,7 +84,8 @@ export default function SetPasswordPage() {
     const typeOnly = url.searchParams.get('type');
     if (typeOnly === 'recovery') {
       // Laissez detectSessionInUrl faire son travail; puis vérifiez la session
-      history.replaceState({}, '', `/set-password?inviteId=${inviteId}`);
+  const nextPath2 = `/set-password?inviteId=${inviteId}${emailHint ? `&em=${encodeURIComponent(emailHint)}` : ''}`;
+  history.replaceState({}, '', nextPath2);
       (async () => {
         const { data } = await supabase.auth.getSession();
         if (data.session) {
@@ -106,7 +110,7 @@ export default function SetPasswordPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) { setPhase('form'); return; }
-      setResetEmail(emailHint || "");
+  setResetEmail(emailHint || "");
       setMsg('Ouvrez le lien reçu par email pour définir votre mot de passe, ou renvoyez-vous un nouveau lien.');
       setPhase('error');
     })();
