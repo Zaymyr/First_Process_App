@@ -10,9 +10,9 @@
   /* Surfaces */
   --background: #0b0b10;
   --surface: #0e1116;
-  --panel: #111523;
-  --border: #1e2435;
-  --muted: #9aa4bd;
+  --panel: #101320;
+  --border: #1c2333;
+  --muted: #b3bcd3;
   --foreground: #e6e9f2;
 
   /* Radii & shadows */
@@ -90,7 +90,7 @@ h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.02em; }
 h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
 h3 { font-size: 18px; font-weight: 700; }
 .title-plain { color: #eef0ff; }
-.brand { font-weight: 800; letter-spacing: -0.02em; color: #e8eaff; }
+.brand { font-weight: 800; letter-spacing: -0.02em; color: var(--foreground); }
 
 /* Cards */
 .card-hover { transition: transform .1s ease, box-shadow .1s ease; }
@@ -102,9 +102,12 @@ h3 { font-size: 18px; font-weight: 700; }
 .menu-item:hover { background: rgba(255,255,255,.05); }
 
 /* Header */
-.site-header { position: sticky; top: 0; backdrop-filter: blur(8px); background: rgba(15,17,23,.65); border-bottom: 1px solid var(--border); z-index: 20; }
-.site-header .inner { height: 56px; }
+.site-header { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--border); z-index: 20; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+.site-header .inner { height: 56px; display:flex; align-items:center; }
 .header-actions { display:flex; align-items:center; gap:12px; margin-left: auto; }
+.site-header .brand { font-size: 18px; }
+.site-header .header-actions .btn { padding: 6px 10px; }
+.site-header .menu { margin-top: 6px; }
 
 /* Main spacing */
 main { padding: 20px 0; }

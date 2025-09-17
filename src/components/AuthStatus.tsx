@@ -67,11 +67,14 @@ export default function AuthStatus() {
   }, [router, supabase]);
 
   async function logout() {
-    await supabase.auth.signOut();
-    setSignedIn(false);
-    setOrg(null);
-    // 🔴 redirect vers /login directement
-    window.location.href = '/login?toast=' + encodeURIComponent('Signed out') + '&kind=info';
+    try {
+      // 1) Déconnecte côté client (localStorage)
+      await supabase.auth.signOut();
+    } finally {
+      // 2) Passe par l'API server pour nettoyer cookies httpOnly et rediriger
+      window.location.href = '/api/auth/logout';
+    }
+      
       }
 
   if (loading) return null;

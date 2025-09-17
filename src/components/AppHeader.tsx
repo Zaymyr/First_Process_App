@@ -36,8 +36,8 @@ export default function AppHeader() {
   if (isAuthPage && !signedIn) return null;
 
   return (
-    <header className="spaced" style={{ height: 56 }}>
-      <nav className="row" style={{ alignItems:'center', gap: 16 }}>
+    <header className="spaced">
+      <nav className="row" style={{ alignItems:'center', gap: 12 }}>
         {/* Mobile hamburger */}
         <button
           className="mobile-only btn btn-outline"
@@ -51,7 +51,7 @@ export default function AppHeader() {
         >
           ☰
         </button>
-        <Link href="/" className="brand" style={{ fontSize: 16 }}>First Process</Link>
+        <Link href="/" className="brand">First Process</Link>
       </nav>
       <div className="header-actions">
         <AuthStatus />

@@ -63,28 +63,35 @@ export default function LoginPage() {
   }
 
   return (
-    <section style={{ maxWidth: 420, margin:'40px auto', display: 'grid', gap: 12 }}>
-      <h2 style={{textAlign:'center'}}>{mode === 'signin' ? 'Sign in' : 'Create account'}</h2>
+    <section style={{ display:'grid', placeItems:'center', minHeight:'calc(100dvh - 56px)' }}>
+      <div className="card" style={{ width:'100%', maxWidth: 420 }}>
+        <div style={{ textAlign:'center', marginBottom: 8 }}>
+          <div className="brand" style={{ fontSize: 22 }}>First Process</div>
+          <div className="muted" style={{ marginTop: 4 }}>
+            {mode === 'signin' ? 'Connectez-vous à votre compte' : "Créez votre compte"}
+          </div>
+        </div>
 
-      <form onSubmit={submit} style={{ display: 'grid', gap: 8 }}>
-        <input type="email" placeholder="you@example.com" autoComplete="email"
-               value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <input type="password" placeholder="Password"
-               autoComplete={mode==='signin'?'current-password':'new-password'}
-               value={password} onChange={(e) => setPassword(e.target.value)} required />
-        <button type="submit" disabled={pending}>
-          {pending ? 'Please wait…' : (mode === 'signin' ? 'Sign in' : 'Sign up')}
-        </button>
-      </form>
+        <form onSubmit={submit} className="stack">
+          <input className="input" type="email" placeholder="you@example.com" autoComplete="email"
+                 value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input className="input" type="password" placeholder="Mot de passe"
+                 autoComplete={mode==='signin'?'current-password':'new-password'}
+                 value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <button className="btn btn-lg" type="submit" disabled={pending}>
+            {pending ? 'Veuillez patienter…' : (mode === 'signin' ? 'Se connecter' : "Créer un compte")}
+          </button>
+        </form>
 
-      <div style={{display:'flex', justifyContent:'space-between'}}>
-        <button onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}>
-          {mode === 'signin' ? "No account? Create one" : "Already have an account? Sign in"}
-        </button>
-        <button onClick={sendReset}>Forgot password?</button>
+        <div className="row" style={{ justifyContent:'space-between', marginTop: 8 }}>
+          <button className="btn btn-outline" onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}>
+            {mode === 'signin' ? "Pas de compte ? Créez-en un" : "Déjà un compte ? Connectez-vous"}
+          </button>
+          <button className="btn btn-outline" onClick={sendReset}>Mot de passe oublié ?</button>
+        </div>
+
+        {err && <p style={{ color: 'crimson', marginTop: 8 }}>{err}</p>}
       </div>
-
-      {err && <p style={{ color: 'crimson' }}>{err}</p>}
     </section>
   );
 }
