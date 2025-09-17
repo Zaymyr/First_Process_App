@@ -89,10 +89,25 @@ export default function RecoveryPage() {
     // Default: show form if session exists; else error with resend option
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) setPhase("form");
-      else {
-        setMsg("Ouvrez le lien reçu par email pour définir votre mot de passe, ou renvoyez-vous un nouveau lien.");
-        setPhase("error");
+      if (data.session) { setPhase("form"); return; }
+      setMsg("Ouvrez le lien reçu par email pour définir votre mot de passe, ou renvoyez-vous un nouveau lien.");
+      setPhase("error");
+      // Auto-resend once if we have an email hint and no session
+      if (emailHint) {
+        try {
+          const key = `reco_auto_${emailHint}`;
+          const last = Number(localStorage.getItem(key) || "0");
+          if (Date.now() - last > 90_000) {
+            const base = window.location.origin;
+            const next = `/auth/recovery?inviteId=${inviteId}${emailHint ? `&em=${encodeURIComponent(emailHint)}` : ""}`;
+            const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(next)}`;
+            await supabase.auth.resetPasswordForEmail(emailHint, { redirectTo });
+            localStorage.setItem(key, String(Date.now()));
+            setMsg(`Nous avons renvoyé un lien à ${emailHint}. Ouvrez l'email le plus récent.`);
+            setResetEmail(emailHint);
+            setResetSent(true);
+          }
+        } catch { }
       }
     })();
   }, [supabase, inviteId, emailHint]);

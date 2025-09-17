@@ -123,13 +123,13 @@ export async function POST(req: Request) {
     // Générer un lien de récupération (magic link) manuellement pour conserver une expérience homogène
     try {
       const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-  const next = `/auth/recovery?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
-  const redirectTo = `${site}${next}`;
+      const next = `/auth/recovery?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
+      const redirectTo = `${site}${next}`;
       // Utiliser generateLink pour obtenir une URL de type recovery avec PKCE
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: 'recovery', email: lowerEmail, options: { redirectTo } } as any);
       if (linkErr || !linkData?.properties?.action_link) {
         // Fallback: resetPassword standard
-  const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
         if (!resetErr) return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
         return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Password reset email failed: ' + resetErr?.message });
       }
