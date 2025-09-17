@@ -54,7 +54,7 @@ export default function LoginPage() {
     try {
       // Send recovery link to the page that can handle PKCE, fragments, and OTP flows
       const base = window.location.origin;
-      const nextUrl = `${base}/set-password?em=${encodeURIComponent(email)}`;
+      const nextUrl = `${base}/auth/recovery?em=${encodeURIComponent(email)}`;
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: nextUrl,
       });
