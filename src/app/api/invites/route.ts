@@ -32,8 +32,8 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
-  const { email, role }:{email:string;role:'editor'|'viewer'} = await req.json();
-  if (!email || !['editor','viewer'].includes(role)) {
+  const { email, role }: { email: string; role: 'editor' | 'viewer' } = await req.json();
+  if (!email || !['editor', 'viewer'].includes(role)) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
@@ -57,8 +57,8 @@ export async function POST(req: Request) {
   // Apply seat checks only if a subscription exists (active)
   const hasActiveSub = !!sub && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'paused');
 
-  const listMembers = (members ?? []) as Array<{ role: 'owner'|'editor'|'viewer' }>; 
-  const listPending = (pendingInvites ?? []) as Array<{ role: 'editor'|'viewer'; accepted_at: string|null }>; 
+  const listMembers = (members ?? []) as Array<{ role: 'owner' | 'editor' | 'viewer' }>;
+  const listPending = (pendingInvites ?? []) as Array<{ role: 'editor' | 'viewer'; accepted_at: string | null }>;
 
   const usedEditors = listMembers.filter(m => m.role === 'owner' || m.role === 'editor').length +
     listPending.filter(i => i.role === 'editor').length;
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
   // Nouveau flux unifié: toujours passer par /auth/recovery puis rediriger vers /accept-invite après maj du mot de passe
   const nextPath = `/auth/recovery?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
-  const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+  const redirectTo = `${base}${nextPath}`;
   const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
   if (!adminErr) {
     return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
@@ -124,12 +124,12 @@ export async function POST(req: Request) {
     try {
       const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
   const next = `/auth/recovery?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
-      const redirectTo = `${site}/auth/callback?next=${encodeURIComponent(next)}`;
+  const redirectTo = `${site}${next}`;
       // Utiliser generateLink pour obtenir une URL de type recovery avec PKCE
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: 'recovery', email: lowerEmail, options: { redirectTo } } as any);
       if (linkErr || !linkData?.properties?.action_link) {
         // Fallback: resetPassword standard
-        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
         if (!resetErr) return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
         return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Password reset email failed: ' + resetErr?.message });
       }
@@ -151,7 +151,7 @@ export async function POST(req: Request) {
       const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
       if (!resetErr) return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
       return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Custom email failed: ' + sent.reason + ' - Fallback failed: ' + resetErr?.message });
-    } catch (e:any) {
+    } catch (e: any) {
       return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Recovery link flow exception: ' + e.message });
     }
   }

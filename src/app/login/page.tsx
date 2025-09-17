@@ -66,9 +66,9 @@ export default function LoginPage() {
   }
 
   return (
-    <section style={{ display:'grid', placeItems:'center', minHeight:'calc(100dvh - 56px)' }}>
-      <div className="card" style={{ width:'100%', maxWidth: 420 }}>
-        <div style={{ textAlign:'center', marginBottom: 8 }}>
+    <section style={{ display: 'grid', placeItems: 'center', minHeight: 'calc(100dvh - 56px)' }}>
+      <div className="card" style={{ width: '100%', maxWidth: 420 }}>
+        <div style={{ textAlign: 'center', marginBottom: 8 }}>
           <div className="brand" style={{ fontSize: 22 }}>First Process</div>
           <div className="muted" style={{ marginTop: 4 }}>
             {mode === 'signin' ? 'Connectez-vous à votre compte' : "Créez votre compte"}
@@ -77,16 +77,16 @@ export default function LoginPage() {
 
         <form onSubmit={submit} className="stack">
           <input className="input" type="email" placeholder="you@example.com" autoComplete="email"
-                 value={email} onChange={(e) => setEmail(e.target.value)} required />
+            value={email} onChange={(e) => setEmail(e.target.value)} required />
           <input className="input" type="password" placeholder="Mot de passe"
-                 autoComplete={mode==='signin'?'current-password':'new-password'}
-                 value={password} onChange={(e) => setPassword(e.target.value)} required />
+            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+            value={password} onChange={(e) => setPassword(e.target.value)} required />
           <button className="btn btn-lg" type="submit" disabled={pending}>
             {pending ? 'Veuillez patienter…' : (mode === 'signin' ? 'Se connecter' : "Créer un compte")}
           </button>
         </form>
 
-        <div className="row" style={{ justifyContent:'space-between', marginTop: 8 }}>
+        <div className="row" style={{ justifyContent: 'space-between', marginTop: 8 }}>
           <button className="btn btn-outline" onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}>
             {mode === 'signin' ? "Pas de compte ? Créez-en un" : "Déjà un compte ? Connectez-vous"}
           </button>

@@ -50,7 +50,7 @@ export async function POST(req: Request) {
   const base = (process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin).replace(/\/+$/, '');
   // Nouveau flux: d'abord /auth/callback pour poser la session, puis /auth/recovery
   const next = `/auth/recovery?inviteId=${inv.id}&em=${encodeURIComponent(inv.email)}`;
-  const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(next)}`;
+  const redirectTo = `${base}${next}`;
 
   const { error: resendErr } = await admin.auth.admin.inviteUserByEmail(inv.email, { redirectTo, data: { invited_role: inv.role } });
   if (!resendErr) return NextResponse.json({ ok: true, emailMode: 'invite' });

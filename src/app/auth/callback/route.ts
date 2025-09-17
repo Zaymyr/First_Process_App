@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       // Only accept the second decode if it makes sense (starts with '/' or known path markers)
       if (twice.startsWith('/') || twice.startsWith('http')) next = twice;
     }
-  } catch {}
+  } catch { }
   // Ensure it is a relative path
   if (!next.startsWith('/')) next = '/' + next.replace(/^%2F/i, '');
   const res = NextResponse.redirect(new URL(next, url.origin));
