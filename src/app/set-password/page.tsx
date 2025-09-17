@@ -9,6 +9,7 @@ export default function SetPasswordPage() {
   const router = useRouter();
   const params = useSearchParams();
   const inviteId = params.get("inviteId") ?? "";
+  const emailHint = params.get("em") ?? "";
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -74,14 +75,27 @@ export default function SetPasswordPage() {
       return;
     }
 
-    // Sinon, on affiche le formulaire si la session existe, sinon on prévient
+    // Sinon, on affiche le formulaire si la session existe, sinon on essaie de renvoyer un lien si on a l'email
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) setPhase('form');
-      else {
+      if (data.session) { setPhase('form'); return; }
+      if (emailHint) {
+        try {
+          const base = window.location.origin;
+          const redirectTo = `${base}/set-password?inviteId=${encodeURIComponent(inviteId)}&em=${encodeURIComponent(emailHint)}`;
+          const { error } = await supabase.auth.resetPasswordForEmail(emailHint, { redirectTo });
+          if (!error) {
+            setMsg("Un nouveau lien vient d'être envoyé à " + emailHint + ". Ouvrez l'email le plus récent.");
+          } else {
+            setMsg(error.message);
+          }
+        } catch (e: any) {
+          setMsg(e?.message || 'Impossible d\'envoyer un nouveau lien.');
+        }
+      } else {
         setMsg('Ouvrez le lien reçu par email pour définir votre mot de passe.');
-        setPhase('error');
       }
+      setPhase('error');
     })();
   }, [supabase, inviteId]);
 
