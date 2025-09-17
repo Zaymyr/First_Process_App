@@ -52,8 +52,11 @@ export default function LoginPage() {
     setErr(null);
     if (!email) { setErr('Enter your email first'); return; }
     try {
+      // Send recovery link to the page that can handle PKCE, fragments, and OTP flows
+      const base = window.location.origin;
+      const nextUrl = `${base}/set-password?em=${encodeURIComponent(email)}`;
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/reset-password`
+        redirectTo: nextUrl,
       });
       if (error) throw error;
       alert('Check your email for a reset link');
