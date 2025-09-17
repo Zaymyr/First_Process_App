@@ -5,7 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import SidebarBackdrop from '@/components/SidebarBackdrop';
 import Toaster from '@/components/Toaster';
 
-const AUTH_PAGES = ['/login', '/auth/callback', '/auth/recovery', '/reset-password', '/accept-invite', '/set-password'];
+const AUTH_PAGES = ['/login', '/auth/callback', '/auth/recovery', '/auth/new-password', '/reset-password', '/accept-invite', '/set-password'];
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

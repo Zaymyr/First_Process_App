@@ -54,7 +54,7 @@ export default function LoginPage() {
     try {
       // Route via /auth/callback so Supabase appends ?code=... and we exchange it reliably
       const base = window.location.origin;
-      const next = `/auth/recovery?em=${encodeURIComponent(email)}`;
+  const next = `/auth/new-password?em=${encodeURIComponent(email)}`;
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${base}/auth/callback?next=${encodeURIComponent(next)}`,
       });
