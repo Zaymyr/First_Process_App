@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { sendInviteEmail } from '@/lib/mailer';
 
 async function cookieClient() {
   const c = await cookies();
@@ -109,64 +108,28 @@ export async function POST(req: Request) {
   // Normalize base URL
   const url = new URL(req.url);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-  // Nouveau flux unifié: toujours passer par /auth/recovery puis rediriger vers /accept-invite après maj du mot de passe
+  // Always bounce through /auth/callback then land on /auth/new-password
   const nextPath = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
   const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(nextPath)}`;
   const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
   if (!adminErr) {
     return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
   }
-  // Si échec car compte déjà existant, on tente un reset password vers la même redirection
+  // Existing user fallback: send password reset email (no custom email generation)
   const msg = (adminErr.message || '').toLowerCase();
   const already = msg.includes('already been registered') || msg.includes('already registered');
   if (already) {
-    // Générer un lien de récupération (magic link) manuellement pour conserver une expérience homogène
-    try {
-      const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-      const next = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
-      const redirectTo = `${site}/auth/callback?next=${encodeURIComponent(next)}`;
-      // Utiliser generateLink pour obtenir une URL de type recovery avec PKCE
-      const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: 'recovery', email: lowerEmail, options: { redirectTo } } as any);
-      if (linkErr || !linkData?.properties?.action_link) {
-        // Fallback: resetPassword standard
-        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-        if (!resetErr) return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
-        return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Password reset email failed: ' + resetErr?.message });
-      }
-      // Si RESEND est dispo, envoyer un email d’invitation custom
-      let actionLink = linkData.properties.action_link as string;
-      // If the generated action_link does not already include our callback bounce, wrap it manually.
-      try {
-        const al = new URL(actionLink);
-        const hasCode = al.searchParams.has('code');
-        const hasType = al.searchParams.get('type');
-        if (!hasCode && hasType === 'recovery') {
-          // Force user through callback to exchange code if later flows rely on PKCE
-          actionLink = `${site}/auth/callback?next=${encodeURIComponent(next)}`;
-        }
-      } catch { /* ignore URL parse issues */ }
-      const html = `
-        <div style="font-family:sans-serif">
-          <h2>Invitation à rejoindre l'organisation</h2>
-          <p>Vous avez été invité(e) à rejoindre une organisation. Cliquez sur le bouton ci-dessous pour définir votre mot de passe et finaliser l'invitation.</p>
-          <p><a href="${actionLink}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;border-radius:6px;text-decoration:none">Définir mon mot de passe</a></p>
-          <p>Si le bouton ne fonctionne pas, copiez ce lien:
-            <br><a href="${actionLink}">${actionLink}</a>
-          </p>
-        </div>
-      `;
-      const sent = await sendInviteEmail({ to: lowerEmail, html, subject: 'Vous êtes invité(e) à rejoindre une organisation' });
-      if (sent.ok) return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'custom-invite' });
-      // Si l’envoi custom échoue, fallback reset standard (Supabase)
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-      if (!resetErr) return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
-      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Custom email failed: ' + sent.reason + ' - Fallback failed: ' + resetErr?.message });
-    } catch (e: any) {
-      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Recovery link flow exception: ' + e.message });
+    const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
+    const next = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}&existing=1`;
+    const redirectToExisting = `${site}/auth/callback?next=${encodeURIComponent(next)}`;
+    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectToExisting });
+    if (!resetErr) {
+      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset-existing' });
     }
+    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset-existing', note: 'Reset email failed: ' + resetErr?.message });
   }
-  // Autre type d’erreur d’envoi → inviter reste en base, email non envoyé
-  return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'invite', note: 'Email send failed: ' + adminErr.message });
+  // Other error: invite row exists but Supabase failed sending email
+  return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'invite', note: 'Invite email failed: ' + adminErr.message });
 }
 
 export async function GET(req: NextRequest) {

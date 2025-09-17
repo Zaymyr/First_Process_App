@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   if (!me || me.role !== 'owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const base = (process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin).replace(/\/+$/, '');
-  // Nouveau flux: d'abord /auth/callback pour poser la session, puis /auth/recovery
+  // Always bounce through /auth/callback then into /auth/new-password for password setup
   const next = `/auth/new-password?inviteId=${inv.id}&em=${encodeURIComponent(inv.email)}`;
   const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(next)}`;
 
