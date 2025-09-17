@@ -11,6 +11,7 @@ export default function AcceptInvitePage() {
   const router = useRouter();
   const params = useSearchParams();
   const inviteId = params.get('inviteId') ?? '';
+  const alreadySynced = params.get('synced') === '1';
   const supabase = useMemo(() => createClient(), []);
 
   const [phase, setPhase] = useState<Phase>('checking');
@@ -68,6 +69,23 @@ export default function AcceptInvitePage() {
       const u = data.session?.user;
       setEmail(u?.email ?? null);
       if (u) {
+        // Si l'utilisateur est connecté côté client mais que les cookies serveur ne sont pas encore en place,
+        // on force une synchro via /auth/callback (une seule fois grâce au flag synced=1).
+        if (!alreadySynced) {
+          try {
+            const fresh = await supabase.auth.getSession();
+            const at = fresh.data.session?.access_token;
+            const rt = (fresh.data.session as any)?.refresh_token;
+            if (at && rt) {
+              const next = `/accept-invite?inviteId=${encodeURIComponent(inviteId)}&synced=1`;
+              const q = new URLSearchParams({ access_token: at, refresh_token: rt, next });
+              location.replace(`/auth/callback?${q.toString()}`);
+              return; // attend la redirection
+            }
+          } catch {
+            // ignore et on tente quand même d'accepter
+          }
+        }
         setPhase('accepting');
         await acceptInvite();
       } else {
@@ -75,7 +93,7 @@ export default function AcceptInvitePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [supabase]);
+  }, [supabase, alreadySynced, inviteId]);
 
   async function acceptInvite() {
     setPhase('accepting');
@@ -86,6 +104,22 @@ export default function AcceptInvitePage() {
     });
     const j = await resp.json();
     if (!resp.ok) {
+      // Si 401, on essaie une synchronisation des cookies serveur et on relance le flux.
+      if (resp.status === 401) {
+        try {
+          const cur = await supabase.auth.getSession();
+          const at = cur.data.session?.access_token;
+          const rt = (cur.data.session as any)?.refresh_token;
+          if (at && rt && !alreadySynced) {
+            const next = `/accept-invite?inviteId=${encodeURIComponent(inviteId)}&synced=1`;
+            const q = new URLSearchParams({ access_token: at, refresh_token: rt, next });
+            location.replace(`/auth/callback?${q.toString()}`);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      }
       setMsg(j?.error || 'Failed to accept invite.');
       setPhase('error');
       return;
