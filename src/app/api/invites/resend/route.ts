@@ -50,14 +50,14 @@ export async function POST(req: Request) {
   const base = (process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin).replace(/\/+$/, '');
   // Nouveau flux: d'abord /auth/callback pour poser la session, puis /auth/recovery
   const next = `/auth/recovery?inviteId=${inv.id}&em=${encodeURIComponent(inv.email)}`;
-  const redirectTo = `${base}${next}`;
+  const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(next)}`;
 
   const { error: resendErr } = await admin.auth.admin.inviteUserByEmail(inv.email, { redirectTo, data: { invited_role: inv.role } });
   if (!resendErr) return NextResponse.json({ ok: true, emailMode: 'invite' });
   const msg = (resendErr.message || '').toLowerCase();
   const already = msg.includes('already been registered') || msg.includes('already registered');
   if (already) {
-    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(inv.email, { redirectTo });
+  const { error: resetErr } = await supabase.auth.resetPasswordForEmail(inv.email, { redirectTo });
     if (!resetErr) return NextResponse.json({ ok: true, emailMode: 'password-reset' });
     return NextResponse.json({ ok: false, error: 'Password reset email failed: ' + resetErr.message });
   }

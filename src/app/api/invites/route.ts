@@ -111,7 +111,7 @@ export async function POST(req: Request) {
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
   // Nouveau flux unifié: toujours passer par /auth/recovery puis rediriger vers /accept-invite après maj du mot de passe
   const nextPath = `/auth/recovery?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
-  const redirectTo = `${base}${nextPath}`;
+  const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(nextPath)}`;
   const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
   if (!adminErr) {
     return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
@@ -123,8 +123,8 @@ export async function POST(req: Request) {
     // Générer un lien de récupération (magic link) manuellement pour conserver une expérience homogène
     try {
       const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-      const next = `/auth/recovery?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
-      const redirectTo = `${site}${next}`;
+  const next = `/auth/recovery?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
+  const redirectTo = `${site}/auth/callback?next=${encodeURIComponent(next)}`;
       // Utiliser generateLink pour obtenir une URL de type recovery avec PKCE
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: 'recovery', email: lowerEmail, options: { redirectTo } } as any);
       if (linkErr || !linkData?.properties?.action_link) {
@@ -134,7 +134,17 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Password reset email failed: ' + resetErr?.message });
       }
       // Si RESEND est dispo, envoyer un email d’invitation custom
-      const actionLink = linkData.properties.action_link as string;
+      let actionLink = linkData.properties.action_link as string;
+      // If the generated action_link does not already include our callback bounce, wrap it manually.
+      try {
+        const al = new URL(actionLink);
+        const hasCode = al.searchParams.has('code');
+        const hasType = al.searchParams.get('type');
+        if (!hasCode && hasType === 'recovery') {
+          // Force user through callback to exchange code if later flows rely on PKCE
+          actionLink = `${site}/auth/callback?next=${encodeURIComponent(next)}`;
+        }
+      } catch { /* ignore URL parse issues */ }
       const html = `
         <div style="font-family:sans-serif">
           <h2>Invitation à rejoindre l'organisation</h2>
