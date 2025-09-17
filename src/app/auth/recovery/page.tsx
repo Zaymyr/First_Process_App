@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
 
@@ -19,113 +19,89 @@ export default function RecoveryPage() {
   const [phase, setPhase] = useState<Phase>("checking");
   const [resetEmail, setResetEmail] = useState(emailHint);
   const [resetSent, setResetSent] = useState(false);
+  const pollRef = useRef<number | null>(null);
 
+  // Process auth parameters (code, token/type, fragment) then poll for session.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
+    const sp = url.searchParams;
 
-    // Case 1: implicit flow fragments (#access_token=...)
-    if (location.hash && location.hash.startsWith("#access_token")) {
-      const frag = new URLSearchParams(location.hash.slice(1));
-      const nextPath = `/auth/recovery?inviteId=${inviteId}${emailHint ? `&em=${encodeURIComponent(emailHint)}` : ""}`;
-      const q = new URLSearchParams();
-      q.set("next", nextPath);
-      for (const k of [
-        "access_token",
-        "refresh_token",
-        "expires_in",
-        "expires_at",
-        "token_type",
-        "type",
-        "provider_token",
-      ]) {
-        const v = frag.get(k);
-        if (v) q.set(k, v);
-      }
-      history.replaceState({}, "", nextPath);
-      location.assign(`/auth/callback?${q.toString()}`);
-      return;
-    }
-
-    // Case 2: PKCE code or tokens in query
-    const hasCode = url.searchParams.has("code");
-    const hasTokens = url.searchParams.has("access_token") && url.searchParams.has("refresh_token");
-    if (hasCode || hasTokens) {
-      const q = new URLSearchParams(url.search);
-      const nextPath = `/auth/recovery?inviteId=${inviteId}${emailHint ? `&em=${encodeURIComponent(emailHint)}` : ""}`;
-      q.set("next", nextPath);
-      history.replaceState({}, "", nextPath);
-      location.assign(`/auth/callback?${q.toString()}`);
-      return;
-    }
-
-    // Case 3: OTP token
-    const hasOtp = url.searchParams.has("token") && url.searchParams.has("type");
-    if (hasOtp) {
-      const token = url.searchParams.get("token")!;
-      const type = url.searchParams.get("type")! as "recovery" | "signup" | "magiclink" | "email_change";
-      const nextPath = `/auth/recovery?inviteId=${inviteId}${emailHint ? `&em=${encodeURIComponent(emailHint)}` : ""}`;
-      history.replaceState({}, "", nextPath);
-      (async () => {
+    async function processAuth(): Promise<boolean> {
+      // PKCE code
+      if (sp.get("code")) {
         try {
-          await supabase.auth.verifyOtp({ token_hash: token, type });
-          const cur = await supabase.auth.getSession();
-          const at = cur.data.session?.access_token;
-          const rt = (cur.data.session as any)?.refresh_token;
-          if (at && rt) {
-            const q = new URLSearchParams({ access_token: at, refresh_token: rt, next: nextPath });
-            location.replace(`/auth/callback?${q.toString()}`);
-            return;
-          }
-          setPhase("form");
-        } catch (e) {
+          await supabase.auth.exchangeCodeForSession(url.search.slice(1));
+          ["code", "type", "scope", "auth_type"].forEach((k) => sp.delete(k));
+          window.history.replaceState({}, "", url.pathname + (sp.toString() ? "?" + sp.toString() : ""));
+        } catch (e: any) {
+          setMsg(e?.message || "Échec de l'échange du code. Demandez un nouveau lien.");
+          setPhase("error");
+          return true; // stop further polling
+        }
+      }
+      // OTP recovery / signup link
+      if (sp.get("token") && sp.get("type")) {
+        try {
+          await supabase.auth.verifyOtp({ token_hash: sp.get("token")!, type: sp.get("type") as any });
+          ["token", "type"].forEach((k) => sp.delete(k));
+          window.history.replaceState({}, "", url.pathname + (sp.toString() ? "?" + sp.toString() : ""));
+        } catch {
           setMsg("Lien invalide ou expiré. Renvoyez un nouveau lien.");
           setPhase("error");
+          return true;
         }
-      })();
-      return;
+      }
+      // Fragment tokens already parsed by detectSessionInUrl; just clean hash
+      if (location.hash.startsWith("#access_token")) {
+        history.replaceState({}, "", url.pathname + (sp.toString() ? "?" + sp.toString() : ""));
+      }
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setPhase("form");
+        setMsg("");
+        return true;
+      }
+      return false;
     }
 
-    // Default: show form if session exists; else error with resend option
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) { setPhase("form"); return; }
-      setMsg("Ouvrez le lien reçu par email pour définir votre mot de passe, ou renvoyez-vous un nouveau lien.");
+      const ready = await processAuth();
+      if (ready) return;
+      // not ready yet; show resend UI (error phase) but keep polling
       setPhase("error");
-      // Auto-resend once if we have an email hint and no session
-      if (emailHint) {
-        try {
-          const key = `reco_auto_${emailHint}`;
-          const last = Number(localStorage.getItem(key) || "0");
-          if (Date.now() - last > 90_000) {
-            const base = window.location.origin;
-            const next = `/auth/recovery?inviteId=${inviteId}${emailHint ? `&em=${encodeURIComponent(emailHint)}` : ""}`;
-            const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(next)}`;
-            await supabase.auth.resetPasswordForEmail(emailHint, { redirectTo });
-            localStorage.setItem(key, String(Date.now()));
-            setMsg(`Nous avons renvoyé un lien à ${emailHint}. Ouvrez l'email le plus récent.`);
-            setResetEmail(emailHint);
-            setResetSent(true);
-          }
-        } catch { }
-      }
+      setMsg("Ouvrez le lien reçu par email pour définir votre mot de passe, ou renvoyez-vous un nouveau lien.");
+      const start = Date.now();
+      pollRef.current = window.setInterval(async () => {
+        if (Date.now() - start > 60_000) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          return;
+        }
+        const ok = await processAuth();
+        if (ok && pollRef.current) {
+          clearInterval(pollRef.current);
+        }
+      }, 2_000);
     })();
-  }, [supabase, inviteId, emailHint]);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [supabase]);
 
   async function resendReset() {
+    if (!resetEmail) return;
     try {
-      if (!resetEmail) return;
-      const key = `reco_throttle_${inviteId || "noinv"}`;
+      setBusy(true);
+      const key = `recovery_resend_${resetEmail}`;
       const last = Number(localStorage.getItem(key) || "0");
       if (Date.now() - last < 60_000) {
-        setMsg("Veuillez patienter avant de redemander un lien.");
+        setMsg("Veuillez patienter avant de demander un nouveau lien.");
         return;
       }
-      setBusy(true);
-      setResetSent(false);
       const base = window.location.origin;
-      const next = `/auth/recovery?inviteId=${inviteId}${resetEmail ? `&em=${encodeURIComponent(resetEmail)}` : ""}`;
-      const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(next)}`;
+      // Redirect directly back here (no callback bounce) to keep things simple.
+      const redirectTo = `${base}/auth/recovery?em=${encodeURIComponent(resetEmail)}${inviteId ? `&inviteId=${inviteId}` : ""}`;
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, { redirectTo });
       if (error) {
         setMsg(error.message);
