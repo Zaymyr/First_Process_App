@@ -144,9 +144,13 @@ export default function AcceptInvitePage() {
     try {
       setBusy(true);
       setMsg('Définition du mot de passe…');
+      const cur = await supabase.auth.getSession();
+      const at = cur.data.session?.access_token;
+      const headers: Record<string, string> = { 'content-type': 'application/json' };
+      if (at) headers['authorization'] = `Bearer ${at}`;
       const res = await fetch('/api/auth/password', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers,
         body: JSON.stringify({ password })
       });
       const j = await res.json();
