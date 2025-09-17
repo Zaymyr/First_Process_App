@@ -200,24 +200,43 @@ export async function DELETE(req: Request) {
     email = (u?.user?.email ?? null) as string | null;
   } catch {}
 
-  // Supprimer invitations PENDING (accepted_at null) liées à l'org et email
+  // Supprimer toutes les invitations (pendantes OU déjà acceptées) liées à ce membre dans cette org
+  // On cible par email si connu et par accepted_by=user_id pour couvrir le cas où l'email n'est pas disponible
   let deletedInvites = 0;
-  if (email) {
-    const { data: pendingInvites } = await admin
+  try {
+    const baseQuery = admin
+      .from('invites')
+      .select('id')
+      .eq('org_id', me.org_id);
+
+    let toDeleteIds: string[] = [];
+
+    if (email) {
+      const { data: byEmail } = await baseQuery
+        .eq('email', email.toLowerCase());
+      if (byEmail && byEmail.length > 0) toDeleteIds.push(...byEmail.map((i: any) => i.id));
+    }
+
+    const { data: byAccepted } = await admin
       .from('invites')
       .select('id')
       .eq('org_id', me.org_id)
-      .eq('email', email.toLowerCase())
-      .is('accepted_at', null);
-    if (pendingInvites && pendingInvites.length > 0) {
-      const ids = pendingInvites.map(i => i.id);
-      const { error: delInvErr } = await admin
+      .eq('accepted_by', user_id);
+    if (byAccepted && byAccepted.length > 0) toDeleteIds.push(...byAccepted.map((i: any) => i.id));
+
+    // Déduplique ids
+    toDeleteIds = Array.from(new Set(toDeleteIds));
+
+    if (toDeleteIds.length > 0) {
+      const { error: delAllInvErr } = await admin
         .from('invites')
         .delete()
-        .in('id', ids);
-      if (delInvErr) return NextResponse.json({ error: delInvErr.message }, { status: 400 });
-      deletedInvites = ids.length;
+        .in('id', toDeleteIds);
+      if (delAllInvErr) return NextResponse.json({ error: delAllInvErr.message }, { status: 400 });
+      deletedInvites = toDeleteIds.length;
     }
+  } catch (e: any) {
+    // On ne bloque pas la suppression de membre si les invites ne peuvent pas être lues; on continue
   }
 
   // Supprimer membership
