@@ -11,6 +11,8 @@ export default function AcceptInvitePage() {
   const router = useRouter();
   const params = useSearchParams();
   const inviteId = params.get('inviteId') ?? '';
+  const urlError = params.get('error') ?? '';
+  const urlErrorCode = params.get('error_code') ?? '';
   const alreadySynced = params.get('synced') === '1';
   const supabase = useMemo(() => createClient(), []);
 
@@ -20,6 +22,8 @@ export default function AcceptInvitePage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
 
   // 1) If Supabase sent tokens (hash or query) or a PKCE code, bounce through /auth/callback
   useEffect(() => {
@@ -58,6 +62,41 @@ export default function AcceptInvitePage() {
       location.assign(`/auth/callback?${q.toString()}`);
       return;
     }
+
+    // Case C: Supabase magic link / invite with token hash (?token=...&type=signup|magiclink|recovery|email_change)
+    const hasOtpToken = url.searchParams.has('token') && url.searchParams.has('type');
+    if (hasOtpToken) {
+      const token = url.searchParams.get('token')!;
+      const type = url.searchParams.get('type')! as
+        | 'signup'
+        | 'magiclink'
+        | 'recovery'
+        | 'email_change';
+      // Nettoie immédiatement l'URL visible
+      window.history.replaceState({}, '', `/accept-invite?inviteId=${inviteId}`);
+      (async () => {
+        try {
+          // Vérifie l'OTP pour créer la session côté client
+          await supabase.auth.verifyOtp({ token_hash: token, type });
+          // Synchronise les cookies serveur via /auth/callback en passant les tokens actuels
+          const cur = await supabase.auth.getSession();
+          const at = cur.data.session?.access_token;
+          const rt = (cur.data.session as any)?.refresh_token;
+          if (at && rt) {
+            const next = `/accept-invite?inviteId=${encodeURIComponent(inviteId)}&synced=1`;
+            const q = new URLSearchParams({ access_token: at, refresh_token: rt, next });
+            location.replace(`/auth/callback?${q.toString()}`);
+          }
+        } catch (e) {
+          // En cas d'échec (lien expiré ou invalide)
+          const next = new URL(`/accept-invite?inviteId=${inviteId}`, location.origin);
+          next.searchParams.set('error', 'access_denied');
+          next.searchParams.set('error_code', 'otp_expired');
+          location.replace(next.toString());
+        }
+      })();
+      return;
+    }
   }, [inviteId]);
 
   // 2) Lire la session; si déjà connecté on saute le set password
@@ -89,11 +128,19 @@ export default function AcceptInvitePage() {
         setPhase('accepting');
         await acceptInvite();
       } else {
-        setPhase('password');
+        // Si nous n'avons pas de session et que l'URL indique un lien expiré, on guide le renvoi du lien
+        if ((urlError && urlError !== 'null') || urlErrorCode === 'otp_expired') {
+          setMsg('Votre lien a expiré ou est invalide. Renvoyez un nouveau lien de réinitialisation.');
+          setPhase('error');
+        } else {
+          // Pas de session et pas d’erreur explicite -> inviter à repasser par l’email ou à se connecter
+          setMsg('Vous devez ouvrir le lien depuis l’email reçu (ou vous connecter) pour finaliser l’invitation.');
+          setPhase('need-session');
+        }
       }
     })();
     return () => { cancelled = true; };
-  }, [supabase, alreadySynced, inviteId]);
+  }, [supabase, alreadySynced, inviteId, urlError, urlErrorCode]);
 
   async function acceptInvite() {
     setPhase('accepting');
@@ -174,6 +221,27 @@ export default function AcceptInvitePage() {
     await acceptInvite();
   }
 
+  async function resendResetFromClient() {
+    try {
+      setBusy(true);
+      setResetSent(false);
+      const base = typeof window !== 'undefined' ? window.location.origin : '';
+      const redirectTo = `${base}/accept-invite?inviteId=${encodeURIComponent(inviteId)}`;
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), { redirectTo });
+      if (error) {
+        setMsg(error.message);
+        setResetSent(false);
+        return;
+      }
+      setResetSent(true);
+      setMsg('Un nouveau lien vient d\'être envoyé. Consultez vos emails et cliquez sur le lien le plus récent.');
+    } catch (e: any) {
+      setMsg(e?.message || 'Échec de l\'envoi du lien.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section style={{ display: 'grid', gap: 16, maxWidth: 520 }}>
       <h2>Finalisation de l’invitation…</h2>
@@ -215,6 +283,24 @@ export default function AcceptInvitePage() {
       {phase === 'accepting' && <p>Acceptation de l’invitation…</p>}
       {phase === 'done' && <p>Terminé — redirection…</p>}
       {phase === 'error' && <p style={{ color: 'crimson' }}>{msg}</p>}
+      {phase === 'error' && (urlErrorCode === 'otp_expired' || (urlError && urlError !== 'null')) && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <label>
+            Votre email
+            <input
+              type="email"
+              value={resetEmail}
+              onChange={(e) => setResetEmail(e.target.value)}
+              placeholder="votre@email.com"
+              required
+            />
+          </label>
+          <button type="button" disabled={busy || !resetEmail} onClick={resendResetFromClient}>
+            {busy ? 'Envoi…' : 'Renvoyer un lien de réinitialisation'}
+          </button>
+          {resetSent && <p style={{ color: 'green' }}>Lien envoyé. Ouvrez l\'email le plus récent puis revenez ici.</p>}
+        </div>
+      )}
     </section>
   );
 }
