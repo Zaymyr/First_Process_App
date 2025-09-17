@@ -123,8 +123,8 @@ export async function POST(req: Request) {
     // Générer un lien de récupération (magic link) manuellement pour conserver une expérience homogène
     try {
       const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-  const next = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
-  const redirectTo = `${site}/auth/callback?next=${encodeURIComponent(next)}`;
+      const next = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
+      const redirectTo = `${site}/auth/callback?next=${encodeURIComponent(next)}`;
       // Utiliser generateLink pour obtenir une URL de type recovery avec PKCE
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: 'recovery', email: lowerEmail, options: { redirectTo } } as any);
       if (linkErr || !linkData?.properties?.action_link) {

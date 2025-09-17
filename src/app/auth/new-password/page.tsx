@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 
@@ -16,18 +16,31 @@ export default function NewPasswordPage() {
   const [msg, setMsg] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+  const attemptedRef = useRef(false);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        // No session => instruct user to reopen the link (callback should have created session)
+      if (data.session) { setReady(true); return; }
+      if (!emailHint || attemptedRef.current) {
         setMsg("Lien invalide ou expiré. Redemandez un email.");
-      } else {
-        setReady(true);
+        return;
+      }
+      attemptedRef.current = true;
+      // Attempt to start a fresh recovery email silently
+      try {
+        const res = await fetch('/api/auth/begin-password', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: emailHint, inviteId }) });
+        if (!res.ok) {
+          const j = await res.json();
+          setMsg(j?.error || 'Impossible de démarrer la récupération.');
+          return;
+        }
+        setMsg("Nous avons renvoyé un lien à votre adresse. Ouvrez l'email le plus récent.");
+      } catch (e: any) {
+        setMsg(e?.message || 'Erreur lors de la tentative de récupération.');
       }
     })();
-  }, [supabase]);
+  }, [supabase, emailHint, inviteId]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,20 +51,20 @@ export default function NewPasswordPage() {
     try {
       setBusy(true);
       const { data: { session } } = await supabase.auth.getSession();
-      const headers: Record<string,string> = { 'content-type':'application/json' };
+      const headers: Record<string, string> = { 'content-type': 'application/json' };
       if (session?.access_token) headers.authorization = `Bearer ${session.access_token}`;
-      const res = await fetch('/api/auth/password', { method:'POST', headers, body: JSON.stringify({ password }) });
+      const res = await fetch('/api/auth/password', { method: 'POST', headers, body: JSON.stringify({ password }) });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || 'Échec update mot de passe');
       if (inviteId) {
-        const accept = await fetch('/api/invites/accept', { method:'POST', headers, body: JSON.stringify({ inviteId }) });
+        const accept = await fetch('/api/invites/accept', { method: 'POST', headers, body: JSON.stringify({ inviteId }) });
         if (!accept.ok) {
           const aj = await accept.json();
-            throw new Error(aj?.error || "Échec de l'acceptation de l'invitation");
+          throw new Error(aj?.error || "Échec de l'acceptation de l'invitation");
         }
       }
       router.replace(`/org?toast=${encodeURIComponent(inviteId ? 'Invitation acceptée' : 'Mot de passe mis à jour')}&kind=success`);
-    } catch (e:any) {
+    } catch (e: any) {
       setMsg(e?.message || 'Erreur inattendue');
     } finally {
       setBusy(false);
@@ -59,15 +72,15 @@ export default function NewPasswordPage() {
   }
 
   return (
-    <section style={{ maxWidth:420, margin:'64px auto', display:'grid', gap:12 }}>
+    <section style={{ maxWidth: 420, margin: '64px auto', display: 'grid', gap: 12 }}>
       <h2>Définir votre mot de passe</h2>
       {!ready && !msg && <p>Vérification de la session…</p>}
-      {msg && !ready && <p style={{ color:'crimson' }}>{msg}</p>}
+      {msg && !ready && <p style={{ color: 'crimson' }}>{msg}</p>}
       {ready && (
-        <form onSubmit={submit} style={{ display:'grid', gap:8 }}>
-          {emailHint && <p style={{ fontSize:14, color:'#555' }}>{emailHint}</p>}
-          <input type="password" placeholder="Nouveau mot de passe" value={password} onChange={e=>setPassword(e.target.value)} required />
-          <input type="password" placeholder="Confirmer" value={confirm} onChange={e=>setConfirm(e.target.value)} required />
+        <form onSubmit={submit} style={{ display: 'grid', gap: 8 }}>
+          {emailHint && <p style={{ fontSize: 14, color: '#555' }}>{emailHint}</p>}
+          <input type="password" placeholder="Nouveau mot de passe" value={password} onChange={e => setPassword(e.target.value)} required />
+          <input type="password" placeholder="Confirmer" value={confirm} onChange={e => setConfirm(e.target.value)} required />
           <button type="submit" disabled={busy}>{busy ? 'Enregistrement…' : (inviteId ? 'Enregistrer et rejoindre' : 'Enregistrer')}</button>
         </form>
       )}
