@@ -52,11 +52,11 @@ export default function LoginPage() {
     setErr(null);
     if (!email) { setErr('Enter your email first'); return; }
     try {
-      // Route via /auth/callback so Supabase appends ?code=... and we exchange it reliably
+      // Route via /auth/cb (client bridge captures hash or code then forwards to callback)
       const base = window.location.origin;
       const next = `/auth/new-password?em=${encodeURIComponent(email)}`;
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${base}/auth/callback?next=${encodeURIComponent(next)}`,
+        redirectTo: `${base}/auth/cb?next=${encodeURIComponent(next)}`,
       });
       if (error) throw error;
       alert('Check your email for a reset link');

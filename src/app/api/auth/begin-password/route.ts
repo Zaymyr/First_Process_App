@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   );
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
   const next = `/auth/new-password?em=${encodeURIComponent(email)}${inviteId ? `&inviteId=${inviteId}` : ''}`;
-  const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(next)}`;
+  const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(next)}`;
   // always trigger a password reset (recovery) email
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

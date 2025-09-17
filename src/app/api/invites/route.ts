@@ -110,7 +110,7 @@ export async function POST(req: Request) {
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
   // Always bounce through /auth/callback then land on /auth/new-password
   const nextPath = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
-  const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+  const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(nextPath)}`;
   const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
   if (!adminErr) {
     return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
   if (already) {
     const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
     const next = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}&existing=1`;
-    const redirectToExisting = `${site}/auth/callback?next=${encodeURIComponent(next)}`;
+  const redirectToExisting = `${site}/auth/cb?next=${encodeURIComponent(next)}`;
     const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectToExisting });
     if (!resetErr) {
       return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset-existing' });
