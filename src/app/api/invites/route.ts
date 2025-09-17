@@ -108,7 +108,8 @@ export async function POST(req: Request) {
   // Normalize base URL
   const url = new URL(req.url);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-  const redirectTo = `${base}/accept-invite?inviteId=${invite.id}`;
+  // Nouveau flux unifié: toujours passer par /set-password puis rediriger vers /accept-invite après maj du mot de passe
+  const redirectTo = `${base}/set-password?inviteId=${invite.id}`;
   const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
   if (!adminErr) {
     return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
     // resetPasswordForEmail doit être effectué par un client supabase (non admin). On crée un client service-side non authentifié user.
     try {
       const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-      const resetRedirect = `${site}/accept-invite?inviteId=${invite.id}`;
+  const resetRedirect = `${site}/set-password?inviteId=${invite.id}`;
       const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: resetRedirect });
       if (!resetErr) {
         return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
