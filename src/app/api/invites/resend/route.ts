@@ -48,8 +48,9 @@ export async function POST(req: Request) {
   if (!me || me.role !== 'owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const base = (process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin).replace(/\/+$/, '');
-  // Nouveau flux: renvoyer vers /set-password pour (re)définir le mot de passe, puis redirection vers /accept-invite
-  const redirectTo = `${base}/set-password?inviteId=${inv.id}&em=${encodeURIComponent(inv.email)}`;
+  // Nouveau flux: d'abord /auth/callback pour poser la session, puis /set-password
+  const next = `/set-password?inviteId=${inv.id}&em=${encodeURIComponent(inv.email)}`;
+  const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(next)}`;
 
   const { error: resendErr } = await admin.auth.admin.inviteUserByEmail(inv.email, { redirectTo, data: { invited_role: inv.role } });
   if (!resendErr) return NextResponse.json({ ok: true, emailMode: 'invite' });

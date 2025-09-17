@@ -110,7 +110,8 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
   // Nouveau flux unifié: toujours passer par /set-password puis rediriger vers /accept-invite après maj du mot de passe
-  const redirectTo = `${base}/set-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
+  const nextPath = `/set-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
+  const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(nextPath)}`;
   const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
   if (!adminErr) {
     return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
@@ -122,7 +123,8 @@ export async function POST(req: Request) {
     // Générer un lien de récupération (magic link) manuellement pour conserver une expérience homogène
     try {
       const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-      const redirectTo = `${site}/set-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
+      const next = `/set-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
+      const redirectTo = `${site}/auth/callback?next=${encodeURIComponent(next)}`;
       // Utiliser generateLink pour obtenir une URL de type recovery avec PKCE
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: 'recovery', email: lowerEmail, options: { redirectTo } } as any);
       if (linkErr || !linkData?.properties?.action_link) {
