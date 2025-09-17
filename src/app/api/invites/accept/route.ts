@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createClient as createAdminClient, createClient as createSbClient } from '@supabase/supabase-js';
 
 async function sb() {
   const c = await cookies();
@@ -26,7 +26,31 @@ export async function POST(req: Request) {
     { auth: { persistSession: false } }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // 1) Auth via cookies (SSR)
+  let { data: { user } } = await supabase.auth.getUser();
+
+  // 2) Fallback: si pas de cookies (401), accepter un token Bearer depuis le client
+  if (!user) {
+    const authz = req.headers.get('authorization') || '';
+    const m = authz.match(/^Bearer\s+(.+)$/i);
+    if (m) {
+      const bearer = m[1];
+      try {
+        const bearerClient = createSbClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            global: { headers: { Authorization: `Bearer ${bearer}` } },
+            auth: { persistSession: false },
+          }
+        );
+        const ures = await bearerClient.auth.getUser();
+        user = ures.data.user;
+      } catch {
+        // ignore; handled below
+      }
+    }
+  }
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
   const { inviteId } = await req.json();

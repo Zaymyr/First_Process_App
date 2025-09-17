@@ -97,9 +97,14 @@ export default function AcceptInvitePage() {
 
   async function acceptInvite() {
     setPhase('accepting');
+    // Joindre le token d'accès en Bearer en fallback si les cookies serveur ne sont pas encore synchronisés
+    const cur = await supabase.auth.getSession();
+    const at = cur.data.session?.access_token;
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (at) headers['authorization'] = `Bearer ${at}`;
     const resp = await fetch('/api/invites/accept', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ inviteId }),
     });
     const j = await resp.json();
