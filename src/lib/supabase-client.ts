@@ -9,7 +9,7 @@ export function createClient() {
       auth: {
         persistSession: true,        // keep session in localStorage
         detectSessionInUrl: true,    // parse tokens on redirect
-        // flowType: 'pkce',          // optional; token-hash flow still works without this
+        flowType: 'pkce',            // align with recovery links that use PKCE
       }
     }
   );

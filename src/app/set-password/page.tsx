@@ -75,6 +75,31 @@ export default function SetPasswordPage() {
       return;
     }
 
+    // Cas: type=recovery mais pas de token (Supabase a pu déjà consommer le code PKCE automatiquement)
+    const typeOnly = url.searchParams.get('type');
+    if (typeOnly === 'recovery') {
+      // Laissez detectSessionInUrl faire son travail; puis vérifiez la session
+      history.replaceState({}, '', `/set-password?inviteId=${inviteId}`);
+      (async () => {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          setPhase('form');
+        } else {
+          // Si toujours pas de session, tentez un échange explicite si un code est présent
+          const current = new URL(window.location.href);
+          if (current.searchParams.has('code')) {
+            const q = new URLSearchParams(current.search);
+            q.set('next', `/set-password?inviteId=${inviteId}`);
+            location.assign(`/auth/callback?${q.toString()}`);
+            return;
+          }
+          setMsg('Lien invalide ou expiré. Demandez un nouveau lien.');
+          setPhase('error');
+        }
+      })();
+      return;
+    }
+
     // Sinon, on affiche le formulaire si la session existe, sinon on essaie de renvoyer un lien si on a l'email
     (async () => {
       const { data } = await supabase.auth.getSession();
