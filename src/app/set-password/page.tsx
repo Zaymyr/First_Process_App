@@ -16,6 +16,8 @@ export default function SetPasswordPage() {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<"checking"|"form"|"updating"|"done"|"error">("checking");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSent, setResetSent] = useState(false);
 
   // 1) Normaliser les scénarios d'arrivée: fragment tokens, code PKCE, OTP token/type
   useEffect(() => {
@@ -100,29 +102,49 @@ export default function SetPasswordPage() {
       return;
     }
 
-    // Sinon, on affiche le formulaire si la session existe, sinon on essaie de renvoyer un lien si on a l'email
+    // Sinon, on affiche le formulaire si la session existe, sinon on propose de renvoyer un lien (pas d'auto pour éviter 429)
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) { setPhase('form'); return; }
-      if (emailHint) {
-        try {
-          const base = window.location.origin;
-          const redirectTo = `${base}/set-password?inviteId=${encodeURIComponent(inviteId)}&em=${encodeURIComponent(emailHint)}`;
-          const { error } = await supabase.auth.resetPasswordForEmail(emailHint, { redirectTo });
-          if (!error) {
-            setMsg("Un nouveau lien vient d'être envoyé à " + emailHint + ". Ouvrez l'email le plus récent.");
-          } else {
-            setMsg(error.message);
-          }
-        } catch (e: any) {
-          setMsg(e?.message || 'Impossible d\'envoyer un nouveau lien.');
-        }
-      } else {
-        setMsg('Ouvrez le lien reçu par email pour définir votre mot de passe.');
-      }
+      setResetEmail(emailHint || "");
+      setMsg('Ouvrez le lien reçu par email pour définir votre mot de passe, ou renvoyez-vous un nouveau lien.');
       setPhase('error');
     })();
   }, [supabase, inviteId]);
+
+  async function resendReset() {
+    try {
+      if (!resetEmail) return;
+      // Throttle simple pour éviter 429
+      const key = `fp_reset_${inviteId}`;
+      const last = Number(localStorage.getItem(key) || '0');
+      const now = Date.now();
+      if (now - last < 60_000) {
+        setMsg('Veuillez patienter quelques secondes avant de redemander un lien.');
+        return;
+      }
+      setBusy(true);
+      setResetSent(false);
+      const base = window.location.origin;
+      const redirectTo = `${base}/auth/callback?next=${encodeURIComponent(`/set-password?inviteId=${encodeURIComponent(inviteId)}&em=${encodeURIComponent(resetEmail)}`)}`;
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, { redirectTo });
+      if (error) {
+        if ((error as any).status === 429) {
+          setMsg('Trop de tentatives. Réessayez dans une minute.');
+        } else {
+          setMsg(error.message);
+        }
+        return;
+      }
+      localStorage.setItem(key, String(now));
+      setResetSent(true);
+      setMsg(`Un nouveau lien a été envoyé à ${resetEmail}. Ouvrez l'email le plus récent.`);
+    } catch (e: any) {
+      setMsg(e?.message || 'Échec de l\'envoi du lien.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -187,7 +209,21 @@ export default function SetPasswordPage() {
       )}
       {phase === 'updating' && <p>Mise à jour du mot de passe…</p>}
       {phase === 'done' && <p>Terminé — redirection…</p>}
-      {phase === 'error' && <p style={{ color: 'crimson' }}>{msg}</p>}
+      {phase === 'error' && (
+        <>
+          <p style={{ color: 'crimson' }}>{msg}</p>
+          <div style={{ display: 'grid', gap: 8, maxWidth: 420 }}>
+            <label>
+              Votre email
+              <input type="email" value={resetEmail} onChange={(e)=>setResetEmail(e.target.value)} placeholder="votre@email.com" />
+            </label>
+            <button type="button" onClick={resendReset} disabled={busy || !resetEmail}>
+              {busy ? 'Envoi…' : 'Renvoyer un lien' }
+            </button>
+            {resetSent && <p style={{ color: 'green' }}>Lien envoyé. Consultez l'email le plus récent.</p>}
+          </div>
+        </>
+      )}
     </section>
   );
 }
