@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { sendInviteEmail } from '@/lib/mailer';
 
 async function cookieClient() {
   const c = await cookies();
@@ -118,17 +119,38 @@ export async function POST(req: Request) {
   const msg = (adminErr.message || '').toLowerCase();
   const already = msg.includes('already been registered') || msg.includes('already registered');
   if (already) {
-    // resetPasswordForEmail doit être effectué par un client supabase (non admin). On crée un client service-side non authentifié user.
+    // Générer un lien de récupération (magic link) manuellement pour conserver une expérience homogène
     try {
       const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-  const resetRedirect = `${site}/set-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: resetRedirect });
-      if (!resetErr) {
-        return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
+      const redirectTo = `${site}/set-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
+      // Utiliser generateLink pour obtenir une URL de type recovery avec PKCE
+      const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: 'recovery', email: lowerEmail, options: { redirectTo } } as any);
+      if (linkErr || !linkData?.properties?.action_link) {
+        // Fallback: resetPassword standard
+        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+        if (!resetErr) return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
+        return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Password reset email failed: ' + resetErr?.message });
       }
-      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Password reset email failed: ' + resetErr.message });
+      // Si RESEND est dispo, envoyer un email d’invitation custom
+      const actionLink = linkData.properties.action_link as string;
+      const html = `
+        <div style="font-family:sans-serif">
+          <h2>Invitation à rejoindre l'organisation</h2>
+          <p>Vous avez été invité(e) à rejoindre une organisation. Cliquez sur le bouton ci-dessous pour définir votre mot de passe et finaliser l'invitation.</p>
+          <p><a href="${actionLink}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;border-radius:6px;text-decoration:none">Définir mon mot de passe</a></p>
+          <p>Si le bouton ne fonctionne pas, copiez ce lien:
+            <br><a href="${actionLink}">${actionLink}</a>
+          </p>
+        </div>
+      `;
+      const sent = await sendInviteEmail({ to: lowerEmail, html, subject: 'Vous êtes invité(e) à rejoindre une organisation' });
+      if (sent.ok) return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'custom-invite' });
+      // Si l’envoi custom échoue, fallback reset standard (Supabase)
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      if (!resetErr) return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
+      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Custom email failed: ' + sent.reason + ' - Fallback failed: ' + resetErr?.message });
     } catch (e:any) {
-      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Password reset flow exception: ' + e.message });
+      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Recovery link flow exception: ' + e.message });
     }
   }
   // Autre type d’erreur d’envoi → inviter reste en base, email non envoyé
