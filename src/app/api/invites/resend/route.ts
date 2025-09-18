@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { sendInviteEmail } from '@/lib/mailer';
 
 async function cookieClient() {
   const c = await cookies();
@@ -53,40 +52,15 @@ export async function POST(req: Request) {
   const next = `/auth/new-password?inviteId=${inv.id}&em=${encodeURIComponent(inv.email)}`;
   const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(next)}`;
 
-  // D'abord tenter generateLink invite (si non confirmé)
-  let mode: 'invite' | 'magic-link' = 'invite';
-  let actionLink: string | null = null;
-  const gen = await admin.auth.admin.generateLink({
-    type: 'invite',
-    email: inv.email,
-    options: { redirectTo }
-  });
-  if (!gen.error && gen.data?.properties?.action_link) {
-    actionLink = gen.data.properties.action_link;
-  } else {
-    // Fallback magiclink
-    mode = 'magic-link';
-    const genMagic = await admin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: inv.email,
-      options: { redirectTo }
-    });
-    if (!genMagic.error && genMagic.data?.properties?.action_link) {
-      actionLink = genMagic.data.properties.action_link;
-    } else {
-      return NextResponse.json({ error: genMagic.error?.message || gen.error?.message || 'Unable to generate link' }, { status: 400 });
+  // Tenter un nouvel envoi d'invitation native. Si l'utilisateur est déjà confirmé, fallback sur reset password.
+  let emailMode: 'invite' | 'reset-password' = 'invite';
+  const resend = await admin.auth.admin.inviteUserByEmail(inv.email, { redirectTo });
+  if (resend.error) {
+    emailMode = 'reset-password';
+    const reset = await supabase.auth.resetPasswordForEmail(inv.email, { redirectTo });
+    if (reset.error) {
+      return NextResponse.json({ error: reset.error.message }, { status: 400 });
     }
   }
-
-  const html = `
-    <div style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.4;margin:0;padding:0">
-      <h2 style="margin:0 0 16px">Nouvelle invitation</h2>
-      <p>L'invitation pour <strong>${inv.email}</strong> a été renvoyée.</p>
-      <p>Cliquez ci-dessous pour ${mode === 'invite' ? 'confirmer votre email et rejoindre' : 'ouvrir une session et rejoindre'} :</p>
-      <p style="text-align:center;margin:32px 0"><a href="${actionLink}" style="background:#4f46e5;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block">Continuer</a></p>
-      <p style="font-size:12px;color:#666">Si le bouton ne fonctionne pas :<br/><span style="word-break:break-all;color:#444">${actionLink}</span></p>
-    </div>`;
-  const sent = await sendInviteEmail({ to: inv.email, html, text: actionLink! });
-  if (!sent.ok) return NextResponse.json({ error: sent.reason }, { status: 500 });
-  return NextResponse.json({ ok: true, emailMode: mode });
+  return NextResponse.json({ ok: true, emailMode });
 }

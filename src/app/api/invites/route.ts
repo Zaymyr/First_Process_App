@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { sendInviteEmail } from '@/lib/mailer';
 
 async function cookieClient() {
   const c = await cookies();
@@ -112,51 +111,22 @@ export async function POST(req: Request) {
   const nextPath = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
   const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(nextPath)}`;
 
-  // Tentative 1 : generateLink type 'invite' (nouvel utilisateur)
-  let mode: 'invite' | 'magic-link' = 'invite';
-  const gen = await admin.auth.admin.generateLink({
-    type: 'invite',
-    email,
-    options: { redirectTo }
-  });
+  // Envoi via emails natifs Supabase
+  // 1. Tentative d'envoi d'une vraie invitation (nouvel utilisateur ou utilisateur non confirmé)
+  let emailMode: 'invite' | 'reset-password' = 'invite';
+  const inviteSend = await admin.auth.admin.inviteUserByEmail(lowerEmail, { redirectTo });
 
-  let actionLink: string | null = null;
-  if (!gen.error && gen.data?.properties?.action_link) {
-    actionLink = gen.data.properties.action_link;
-  } else {
-    // Fallback : utilisateur existe déjà -> magic link
-    mode = 'magic-link';
-    const genMagic = await admin.auth.admin.generateLink({
-      type: 'magiclink',
-      email,
-      options: { redirectTo }
-    });
-    if (!genMagic.error && genMagic.data?.properties?.action_link) {
-      actionLink = genMagic.data.properties.action_link;
-    } else {
-      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: mode, note: 'Link generation failed: ' + (genMagic.error?.message || gen.error?.message) });
+  if (inviteSend.error) {
+    // Si l'utilisateur existe déjà (souvent message "User already registered"), on envoie un email de réinitialisation de mot de passe.
+    emailMode = 'reset-password';
+    const reset = await supabase.auth.resetPasswordForEmail(lowerEmail, { redirectTo });
+    if (reset.error) {
+      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode, note: reset.error.message });
     }
+    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode });
   }
 
-  // Envoi email custom
-  const html = `
-    <div style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.4;margin:0;padding:0">
-      <h2 style="margin:0 0 16px">Invitation à rejoindre l'organisation</h2>
-      <p>Vous avez été invité(e) à rejoindre l'organisation de <strong>${user.email}</strong>.</p>
-      <p>Cliquez sur le bouton ci-dessous pour ${mode === 'invite' ? 'activer votre compte et définir' : 'ouvrir une session et définir / mettre à jour'} votre mot de passe.</p>
-      <p style="text-align:center;margin:32px 0">
-        <a href="${actionLink}" style="background:#4f46e5;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block">Rejoindre maintenant</a>
-      </p>
-      <p style="font-size:12px;color:#666">Si le bouton ne fonctionne pas, copiez-collez ce lien :<br />
-        <span style="word-break:break-all;color:#444">${actionLink}</span></p>
-      <p style="font-size:12px;color:#999">Ce lien expirera après utilisation ou dans un délai limité.</p>
-    </div>
-  `;
-  const sent = await sendInviteEmail({ to: email, html, text: `Rejoindre : ${actionLink}` });
-  if (!sent.ok) {
-    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: mode, note: sent.reason });
-  }
-  return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: mode });
+  return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode });
 }
 
 export async function GET(req: NextRequest) {
