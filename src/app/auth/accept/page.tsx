@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase-client';
 
@@ -29,9 +29,28 @@ export default function AcceptPage() {
   const expectedEmail = (sp.get('em') || '').toLowerCase();
   const token = sp.get('token');
   const type = sp.get('type');
-  const code = sp.get('code'); // Deviendra rarement utilisé (flow implicit)
+  const code = sp.get('code'); // Cas résiduel PKCE (legacy)
   const access_token = sp.get('access_token');
   const refresh_token = sp.get('refresh_token');
+
+  // Tokens éventuellement dans le fragment (#access_token=...) pour implicit/magic link.
+  const [fragmentTokens, setFragmentTokens] = useState<{ access_token?: string; refresh_token?: string } | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (fragmentTokens) return; // déjà extrait
+    if (window.location.hash && window.location.hash.includes('access_token=')) {
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const at = params.get('access_token') || undefined;
+      const rt = params.get('refresh_token') || undefined;
+      if (at) {
+        setFragmentTokens({ access_token: at, refresh_token: rt });
+        const clean = new URL(window.location.href);
+        clean.hash = '';
+        window.history.replaceState({}, '', clean.toString());
+      }
+    }
+  }, [fragmentTokens]);
 
   const [loading, setLoading] = useState(true);
   const [needsPassword, setNeedsPassword] = useState(false);
@@ -53,13 +72,16 @@ export default function AcceptPage() {
             const email = expectedEmail || '';
             const r = await supabase.auth.verifyOtp({ type: type as any, token, email });
             err = r.error;
-          } else if (access_token && refresh_token) {
-            const r = await supabase.auth.setSession({ access_token, refresh_token });
-            err = r.error;
-          } else if (code) {
-            // Cas résiduel PKCE (rare maintenant, flow implicit configuré)
-            const r = await supabase.auth.exchangeCodeForSession(code);
-            err = r.error;
+          } else {
+            const at = access_token || fragmentTokens?.access_token;
+            const rt = refresh_token || fragmentTokens?.refresh_token;
+            if (at && rt) {
+              const r = await supabase.auth.setSession({ access_token: at, refresh_token: rt });
+              err = r.error;
+            } else if (code) {
+              const r = await supabase.auth.exchangeCodeForSession(code);
+              err = r.error;
+            }
           }
           if (err) {
             setMsg(err.message || 'Impossible de valider le lien.');
@@ -71,7 +93,7 @@ export default function AcceptPage() {
         // 2. Relecture de session
         const { data: after } = await supabase.auth.getSession();
         if (!after.session) {
-          setMsg('Session introuvable. Lien invalide ou expiré.');
+          setMsg('Session introuvable. Lien invalide, expiré ou déjà utilisé.');
           setLoading(false);
           return;
         }
@@ -96,7 +118,26 @@ export default function AcceptPage() {
         setLoading(false);
       }
     })();
-  }, [supabase, code, access_token, refresh_token, token, type, inviteId, expectedEmail, router]);
+  }, [supabase, code, access_token, refresh_token, fragmentTokens, token, type, inviteId, expectedEmail, router]);
+
+  // Renvoi d'invitation (quand le lien ne contient plus de jetons valides)
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [resendMsg, setResendMsg] = useState('');
+  const triggerResend = useCallback(async () => {
+    if (!inviteId) return;
+    setResendState('sending');
+    setResendMsg('');
+    try {
+      const res = await fetch('/api/invites/resend', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ inviteId }) });
+      const j = await res.json();
+      if (!res.ok || j.error) throw new Error(j.error || j.note || 'Échec renvoi');
+      setResendState('sent');
+      setResendMsg(`Email renvoyé (${j.case})${j.generatedLink ? ' – lien régénéré.' : ''}`);
+    } catch (e: any) {
+      setResendState('error');
+      setResendMsg(e?.message || 'Erreur renvoi');
+    }
+  }, [inviteId]);
 
   async function acceptInvite(bearer: string) {
     if (!inviteId) return;
@@ -151,8 +192,18 @@ export default function AcceptPage() {
       <h2>Invitation / Accès</h2>
       {loading && <p>Validation du lien…</p>}
       {!loading && msg && <>
-        <p style={{ color: 'crimson' }}>{msg}</p>
-        <p style={{ fontSize: 13 }}>Si le lien vient d'un ancien email, renvoyez une nouvelle invitation puis réessayez.</p>
+        <p style={{ color: 'crimson', whiteSpace: 'pre-line' }}>{msg}</p>
+        <p style={{ fontSize: 13 }}>
+          Vérifiez que vous utilisez le dernier email reçu. Si besoin, renvoyez l'invitation.
+        </p>
+        {inviteId && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <button disabled={resendState === 'sending'} onClick={triggerResend}>
+              {resendState === 'sending' ? 'Renvoi…' : resendState === 'sent' ? 'Email renvoyé ✔' : "Renvoyer l'invitation"}
+            </button>
+            {resendMsg && <p style={{ fontSize: 12, color: resendState === 'error' ? 'crimson' : 'green' }}>{resendMsg}</p>}
+          </div>
+        )}
       </>}
       {!loading && !msg && needsPassword && (
         <form onSubmit={submitPassword} style={{ display: 'grid', gap: 8 }}>
