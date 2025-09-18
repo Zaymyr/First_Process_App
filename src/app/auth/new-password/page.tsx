@@ -93,10 +93,33 @@ export default function NewPasswordPage() {
     }
   }
 
+  async function resendLink() {
+    setMsg('');
+    try {
+      const base = window.location.origin;
+      const nextPath = `/auth/new-password?inviteId=${encodeURIComponent(inviteId)}&em=${encodeURIComponent(emailHint)}`;
+      const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(nextPath)}`;
+      const { error } = await supabase.auth.resetPasswordForEmail(emailHint, { redirectTo });
+      if (error) throw error;
+      setMsg('Un nouveau lien a été envoyé. Vérifiez votre boîte email.');
+    } catch (e: any) {
+  setMsg(e?.message || "Erreur lors de l'envoi du lien");
+    }
+  }
+
   return (
     <section style={{ maxWidth: 420, margin: '64px auto', display: 'grid', gap: 12 }}>
       <h2>Définir votre mot de passe</h2>
-      {!ready && <p style={{ color: 'crimson' }}>{msg || 'Vérification du lien…'}</p>}
+      {!ready && (
+        <>
+          <p style={{ color: 'crimson' }}>{msg || 'Vérification du lien…'}</p>
+          {inviteId && emailHint && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+              <button className="btn btn-outline" onClick={resendLink}>Renvoyer le lien</button>
+            </div>
+          )}
+        </>
+      )}
       {ready && (
         <form onSubmit={submit} style={{ display: 'grid', gap: 8 }}>
           <input type="password" placeholder="Nouveau mot de passe" value={password} onChange={e => setPassword(e.target.value)} required />
