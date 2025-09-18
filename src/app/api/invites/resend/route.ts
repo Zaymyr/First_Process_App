@@ -77,8 +77,7 @@ export async function POST(req: Request) {
   // redirectTo cohérent avec le flux principal
   const url = new URL(req.url);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-  const next = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(email)}`;
-  const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(next)}`;
+  const redirectTo = `${base}/auth/accept?inviteId=${invite.id}&em=${encodeURIComponent(email)}`;
 
   // Cas A: aucun user (on considère l'invite initiale perdue) -> renvoyer invitation comme neuf
   if (!existingUser) {
@@ -90,7 +89,7 @@ export async function POST(req: Request) {
 
   // Cas B: existant non confirmé
   if (!existingUser.email_confirmed_at) {
-    const resend = await anon.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirectTo } });
+  const resend = await anon.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirectTo } });
     if (resend.error) return NextResponse.json({ case: 'unconfirmed-user', emailSent: false, note: resend.error.message });
     const gen = await admin.auth.admin.generateLink({ type: 'invite', email, options: { redirectTo } });
     return NextResponse.json({ case: 'unconfirmed-user', emailSent: true, generatedLink: gen.data?.properties?.action_link || null });
@@ -99,7 +98,7 @@ export async function POST(req: Request) {
   // Cas C: confirmé mais sans mot de passe
   const hasPassword = (existingUser.user_metadata as any)?.has_password === true;
   if (!hasPassword) {
-    const reset = await anon.auth.resetPasswordForEmail(email, { redirectTo });
+  const reset = await anon.auth.resetPasswordForEmail(email, { redirectTo });
     if (reset.error) return NextResponse.json({ case: 'confirmed-no-password', emailSent: false, note: reset.error.message });
     return NextResponse.json({ case: 'confirmed-no-password', emailSent: true });
   }

@@ -98,8 +98,7 @@ export async function POST(req: Request) {
   // Construire redirectTo commun
   const url = new URL(req.url);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-  const next = `/auth/new-password?inviteId=${inviteRow.id}&em=${encodeURIComponent(targetEmail)}`;
-  const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(next)}`;
+  const redirectTo = `${base}/auth/accept?inviteId=${inviteRow.id}&em=${encodeURIComponent(targetEmail)}`;
 
   // CAS 1: Nouvel utilisateur
   if (!existingUser) {
@@ -114,7 +113,7 @@ export async function POST(req: Request) {
   // CAS 2: Utilisateur existant non confirmé
   if (!existingUser.email_confirmed_at) {
     // Relancer email de confirmation
-    const resend = await anon.auth.resend({ type: 'signup', email: targetEmail, options: { emailRedirectTo: redirectTo } });
+  const resend = await anon.auth.resend({ type: 'signup', email: targetEmail, options: { emailRedirectTo: redirectTo } });
     if (resend.error) return NextResponse.json({ ok: true, inviteId: inviteRow.id, case: 'unconfirmed-user', emailSent: false, note: resend.error.message });
 
     // Générer (option démonstration) un nouveau lien d'invitation si besoin d'un envoi custom SMTP
@@ -125,7 +124,7 @@ export async function POST(req: Request) {
   // CAS 3: Utilisateur confirmé mais sans mot de passe
   const hasPassword = (existingUser.user_metadata as any)?.has_password === true;
   if (!hasPassword) {
-    const reset = await anon.auth.resetPasswordForEmail(targetEmail, { redirectTo });
+  const reset = await anon.auth.resetPasswordForEmail(targetEmail, { redirectTo });
     if (reset.error) return NextResponse.json({ ok: true, inviteId: inviteRow.id, case: 'confirmed-no-password', emailSent: false, note: reset.error.message });
     return NextResponse.json({ ok: true, inviteId: inviteRow.id, case: 'confirmed-no-password', emailSent: true });
   }
