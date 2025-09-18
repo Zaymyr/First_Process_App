@@ -21,7 +21,18 @@ export default function NewPasswordPage() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) { setReady(true); return; }
+      const session = data.session;
+      if (session) {
+        // Vérification de l'email de la session vs email de l'invitation
+        const sessionEmail = session.user?.email?.toLowerCase();
+        const inviteEmail = emailHint.toLowerCase();
+        if (sessionEmail && inviteEmail && sessionEmail !== inviteEmail) {
+          setMsg(`Vous êtes connecté en tant que ${sessionEmail}. Veuillez vous déconnecter avant d'accepter l'invitation pour ${inviteEmail}.`);
+          return;
+        }
+        setReady(true);
+        return;
+      }
 
       // Vérifie la présence d'un code ou token dans l'URL
       const url = new URL(window.location.href);
@@ -38,10 +49,20 @@ export default function NewPasswordPage() {
         error = res.error;
       }
       const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) { setReady(true); return; }
+      const session2 = sessionData.session;
+      if (session2) {
+        const sessionEmail2 = session2.user?.email?.toLowerCase();
+        const inviteEmail2 = emailHint.toLowerCase();
+        if (sessionEmail2 && inviteEmail2 && sessionEmail2 !== inviteEmail2) {
+          setMsg(`Vous êtes connecté en tant que ${sessionEmail2}. Veuillez vous déconnecter avant d'accepter l'invitation pour ${inviteEmail2}.`);
+          return;
+        }
+        setReady(true);
+        return;
+      }
       setMsg(error?.message || "Lien invalide ou expiré. Redemandez un email.");
     })();
-  }, [supabase]);
+  }, [supabase, emailHint]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
