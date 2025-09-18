@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const AUTH_PAGES = ['/login', '/auth/callback', '/auth/recovery', '/auth/new-password', '/reset-password', '/accept-invite', '/set-password'];
+const AUTH_PAGES = ['/login', '/auth/accept', '/auth/recovery', '/reset-password'];
 
 
 function isAuthPage(pathname: string) {
@@ -12,16 +12,13 @@ export async function middleware(req: NextRequest) {
   const { nextUrl, cookies } = req;
   const pathname = nextUrl.pathname;
 
-  // Autoriser l'accès aux pages d'auth ou si code/token présent dans l'URL
+  // Autoriser directement :
+  // - Pages d'auth publiques (incluant /auth/accept)
+  // - Assets statiques
+  // - Toute URL contenant un token/code (afin de permettre établissement de session)
   const params = nextUrl.searchParams;
   const hasAuthToken = params.has('code') || params.has('token') || params.has('access_token') || params.has('refresh_token');
-  if (
-    isAuthPage(pathname) ||
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname.startsWith('/assets') ||
-    (['/auth/cb', '/auth/new-password'].some(p => pathname.startsWith(p)) && hasAuthToken)
-  ) {
+  if (isAuthPage(pathname) || hasAuthToken || pathname.startsWith('/_next') || pathname.startsWith('/favicon') || pathname.startsWith('/assets')) {
     return NextResponse.next();
   }
 
