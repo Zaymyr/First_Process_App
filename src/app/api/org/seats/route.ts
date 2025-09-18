@@ -41,18 +41,15 @@ export async function GET() {
   if (!mem) return NextResponse.json({ error: 'No org' }, { status: 400 });
 
   const org_id = mem.org_id;
-  const [{ data: sub }, { data: members }, { data: pending }] = await Promise.all([
+  const [{ data: sub }, { data: members }] = await Promise.all([
     admin.from('org_subscriptions').select('*').eq('org_id', org_id).maybeSingle(),
     admin.from('org_members').select('role').eq('org_id', org_id),
-    admin.from('invites').select('role, accepted_at').eq('org_id', org_id).is('accepted_at', null),
   ]);
 
   const hasActiveSub = !!sub && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'paused');
   const m = (members ?? []) as Array<{ role: 'owner'|'editor'|'viewer' }>;
-  const p = (pending ?? []) as Array<{ role: 'editor'|'viewer'; accepted_at: string|null }>;
-
-  const usedEditors = m.filter(x => x.role === 'owner' || x.role === 'editor').length + p.filter(x => x.role === 'editor').length;
-  const usedViewers = m.filter(x => x.role === 'viewer').length + p.filter(x => x.role === 'viewer').length;
+  const usedEditors = m.filter(x => x.role === 'owner' || x.role === 'editor').length;
+  const usedViewers = m.filter(x => x.role === 'viewer').length;
 
   return NextResponse.json({
     org_id,

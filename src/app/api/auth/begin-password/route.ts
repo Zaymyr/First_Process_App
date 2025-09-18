@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
-  const { email, inviteId } = await req.json();
+  const { email } = await req.json();
   if (!email) return NextResponse.json({ error: 'missing email' }, { status: 400 });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     { cookies: { get() { return undefined; }, set() { }, remove() { } } } as any
   );
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-  const next = `/auth/new-password?em=${encodeURIComponent(email)}${inviteId ? `&inviteId=${inviteId}` : ''}`;
+  const next = `/auth/accept?em=${encodeURIComponent(email)}`;
   const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(next)}`;
   // always trigger a password reset (recovery) email
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });

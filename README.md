@@ -20,51 +20,23 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Simplified Invitation Flow
+## Access Flow (Invitations Removed)
 
-This app implements a minimal, single-page invitation & access flow using Supabase native emails.
+The application now only supports direct authentication (signup / recovery / magic link). All prior organization invitation mechanics and endpoints have been decommissioned.
 
-### Overview
-| Case | Detection | Action Sent | User Experience |
-|------|-----------|-------------|-----------------|
-| New user | No existing user | `auth.admin.inviteUserByEmail` | Email -> click -> /auth/accept -> set password -> org |
-| Existing unconfirmed | `email_confirmed_at == null` | `auth.resend({ type: 'signup' })` | Email -> click -> /auth/accept -> set password -> org |
-| Confirmed, no password | `user_metadata.has_password != true` | `auth.resetPasswordForEmail` | Email -> click -> /auth/accept -> set password -> org |
-| Confirmed with password | else | `signInWithOtp` magic link | Email -> click -> /auth/accept -> auto accept -> org |
+Current behavior of `/auth/accept`:
+1. Parses Supabase auth parameters (token&type, implicit access/refresh, legacy code).
+2. Establishes a session client-side.
+3. Requests password creation if `user_metadata.has_password != true`.
+4. Updates password via `POST /api/auth/password` and redirects to `/org`.
 
-### Single Landing Page `/auth/accept`
-The page:
-1. Establishes a session (PKCE `code`, OTP `token&type`, or implicit tokens).
-2. Compares invite email vs session email.
-3. Displays password form only if `has_password` flag missing.
-4. Calls `/api/auth/password` then `/api/invites/accept`.
-5. Redirects to `/org`.
+If you had existing invitation emails, they are no longer valid. Clean up database objects by dropping any obsolete `invites` table manually if desired.
 
-### Backend Touchpoints
-- `POST /api/invites` creates internal invite record and chooses the appropriate Supabase email flow.
-- `POST /api/invites/resend` replays the correct email depending on user state.
-- `POST /api/invites/accept` finalizes membership (seat checks, role assignment).
-- `POST /api/auth/password` sets password and marks `user_metadata.has_password`.
-
-### Redirect URL
-All emails use: `https://<your-domain>/auth/accept?inviteId=<id>&em=<email>`.
-
-Add this URL to Supabase Auth Redirect URLs.
-
-### After switching to implicit flow
-If you previously sent invitations while using PKCE flow, those old links may fail (missing stored code_verifier). Re-send invitations so new links use token+type parameters handled by `/auth/accept`.
-
-### Manual Test Scenarios
-1. New email never used: send invite -> email -> set password -> lands in org.
-2. Same email resend before confirming: resend -> new email -> set password -> org.
-3. Mark user confirmed but remove `has_password` (via SQL) -> send reset path -> set password.
-4. User with password: resend -> magic link -> direct org.
-
-### Rationale
-Removing intermediate callback pages eliminates token fragment loss and reduces complexity. A single, idempotent page handles every entry vector.
-
-### Extending
-Add telemetry, rate limiting, or custom HTML emails by generating `generateLink({ type:'invite' })` if desired.
+Example SQL (optional):
+```sql
+-- Optional cleanup (run in Supabase SQL editor only if you no longer need historical invite data)
+DROP TABLE IF EXISTS invites;
+```
 
 
 ## Learn More

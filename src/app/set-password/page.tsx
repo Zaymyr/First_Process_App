@@ -5,10 +5,8 @@ import { useSearchParams } from "next/navigation";
 export default function SetPasswordShim() {
   const params = useSearchParams();
   useEffect(() => {
-    const inviteId = params.get("inviteId") || "";
     const em = params.get("em") || "";
     const qs = new URLSearchParams();
-    if (inviteId) qs.set("inviteId", inviteId);
     if (em) qs.set("em", em);
     const next = `/auth/recovery${qs.toString() ? `?${qs.toString()}` : ""}`;
     window.location.replace(next);

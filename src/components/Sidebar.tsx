@@ -161,7 +161,6 @@ export default function Sidebar() {
               { href: '/org/plan', label: 'Plan', icon: '📊' },
               { href: '/org/settings', label: 'Settings', icon: '⚙️' },
               { href: '/org/members', label: 'Members', icon: '👥' },
-              { href: '/org/invite', label: 'Invite', icon: '✉️' },
             ].map((it) => {
               const active = pathname === it.href || pathname.startsWith(it.href);
               return (
