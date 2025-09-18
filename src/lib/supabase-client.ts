@@ -9,7 +9,7 @@ export function createClient() {
       auth: {
         persistSession: true,        // keep session in localStorage
         detectSessionInUrl: true,    // parse tokens on redirect
-        flowType: 'pkce',            // align with recovery links that use PKCE
+  flowType: 'implicit',        // implicit: évite dépendance au code_verifier pour liens email (invite/magic)
       }
     }
   );

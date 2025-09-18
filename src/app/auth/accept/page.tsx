@@ -29,7 +29,7 @@ export default function AcceptPage() {
   const expectedEmail = (sp.get('em') || '').toLowerCase();
   const token = sp.get('token');
   const type = sp.get('type');
-  const code = sp.get('code');
+  const code = sp.get('code'); // Deviendra rarement utilisé (flow implicit)
   const access_token = sp.get('access_token');
   const refresh_token = sp.get('refresh_token');
 
@@ -48,30 +48,17 @@ export default function AcceptPage() {
         const { data: initial } = await supabase.auth.getSession();
         if (!initial.session) {
           let err: any = null;
-          if (code) {
-            const r = await supabase.auth.exchangeCodeForSession(code);
-            if (r.error && /code verifier/i.test(r.error.message)) {
-              // Fallback: essayer verifyOtp (certains liens d'invite peuvent arriver sans code_verifier enregistré)
-              const email = expectedEmail || '';
-              // Tentative type signup
-              const v1 = await supabase.auth.verifyOtp({ type: 'signup' as any, token: code, email });
-              if (v1.error) {
-                // Tentative type invite
-                const v2 = await supabase.auth.verifyOtp({ type: 'invite' as any, token: code, email });
-                err = v2.error;
-              } else {
-                err = null;
-              }
-            } else {
-              err = r.error;
-            }
+          // Priorité: token & type (invite / signup / recovery) car liens email GoTrue renvoient cela.
+          if (token && type && ['invite','signup','recovery'].includes(type)) {
+            const email = expectedEmail || '';
+            const r = await supabase.auth.verifyOtp({ type: type as any, token, email });
+            err = r.error;
           } else if (access_token && refresh_token) {
             const r = await supabase.auth.setSession({ access_token, refresh_token });
             err = r.error;
-          } else if (token && type && ['invite','signup','recovery'].includes(type)) {
-            // email nécessaire pour verifyOtp : si absent, on tente expectedEmail
-            const email = expectedEmail || '';
-            const r = await supabase.auth.verifyOtp({ type: type as any, token, email });
+          } else if (code) {
+            // Cas résiduel PKCE (rare maintenant, flow implicit configuré)
+            const r = await supabase.auth.exchangeCodeForSession(code);
             err = r.error;
           }
           if (err) {
@@ -163,7 +150,10 @@ export default function AcceptPage() {
     <main style={{ maxWidth: 440, margin: '64px auto', display: 'grid', gap: 16 }}>
       <h2>Invitation / Accès</h2>
       {loading && <p>Validation du lien…</p>}
-      {!loading && msg && <p style={{ color: 'crimson' }}>{msg}</p>}
+      {!loading && msg && <>
+        <p style={{ color: 'crimson' }}>{msg}</p>
+        <p style={{ fontSize: 13 }}>Si le lien vient d'un ancien email, renvoyez une nouvelle invitation puis réessayez.</p>
+      </>}
       {!loading && !msg && needsPassword && (
         <form onSubmit={submitPassword} style={{ display: 'grid', gap: 8 }}>
           <p>Définissez votre mot de passe pour continuer.</p>

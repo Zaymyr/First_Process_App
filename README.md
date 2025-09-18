@@ -51,6 +51,9 @@ All emails use: `https://<your-domain>/auth/accept?inviteId=<id>&em=<email>`.
 
 Add this URL to Supabase Auth Redirect URLs.
 
+### After switching to implicit flow
+If you previously sent invitations while using PKCE flow, those old links may fail (missing stored code_verifier). Re-send invitations so new links use token+type parameters handled by `/auth/accept`.
+
 ### Manual Test Scenarios
 1. New email never used: send invite -> email -> set password -> lands in org.
 2. Same email resend before confirming: resend -> new email -> set password -> org.
