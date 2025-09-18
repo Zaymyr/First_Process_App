@@ -43,6 +43,14 @@ export async function GET(req: NextRequest) {
       access_token: params.get('access_token')!,
       refresh_token: params.get('refresh_token')!,
     });
+  } else if (params.get('token') && params.get('type') === 'recovery') {
+    // Récupération de mot de passe (reset/invitation)
+    const email = params.get('em') || params.get('email') || '';
+    await supabase.auth.verifyOtp({
+      type: 'recovery',
+      token: params.get('token')!,
+      email,
+    });
   }
   return res;
 }
