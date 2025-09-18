@@ -113,15 +113,18 @@ export async function POST(req: Request) {
 
   // Envoi via emails natifs Supabase
   // 1. Tentative d'envoi d'une vraie invitation (nouvel utilisateur ou utilisateur non confirmé)
-  let emailMode: 'invite' | 'reset-password' = 'invite';
+  let emailMode: 'invite' | 'magic-link' = 'invite';
   const inviteSend = await admin.auth.admin.inviteUserByEmail(lowerEmail, { redirectTo });
 
   if (inviteSend.error) {
-    // Si l'utilisateur existe déjà (souvent message "User already registered"), on envoie un email de réinitialisation de mot de passe.
-    emailMode = 'reset-password';
-    const reset = await supabase.auth.resetPasswordForEmail(lowerEmail, { redirectTo });
-    if (reset.error) {
-      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode, note: reset.error.message });
+    // Si l'utilisateur existe déjà : on envoie un magic link (session directe avant password)
+    emailMode = 'magic-link';
+    const magic = await supabase.auth.signInWithOtp({
+      email: lowerEmail,
+      options: { emailRedirectTo: redirectTo }
+    });
+    if (magic.error) {
+      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode, note: magic.error.message });
     }
     return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode });
   }

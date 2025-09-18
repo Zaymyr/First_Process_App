@@ -52,14 +52,17 @@ export async function POST(req: Request) {
   const next = `/auth/new-password?inviteId=${inv.id}&em=${encodeURIComponent(inv.email)}`;
   const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(next)}`;
 
-  // Tenter un nouvel envoi d'invitation native. Si l'utilisateur est déjà confirmé, fallback sur reset password.
-  let emailMode: 'invite' | 'reset-password' = 'invite';
+  // Tenter un nouvel envoi d'invitation native. Si l'utilisateur est déjà confirmé, fallback sur magic link.
+  let emailMode: 'invite' | 'magic-link' = 'invite';
   const resend = await admin.auth.admin.inviteUserByEmail(inv.email, { redirectTo });
   if (resend.error) {
-    emailMode = 'reset-password';
-    const reset = await supabase.auth.resetPasswordForEmail(inv.email, { redirectTo });
-    if (reset.error) {
-      return NextResponse.json({ error: reset.error.message }, { status: 400 });
+    emailMode = 'magic-link';
+    const magic = await supabase.auth.signInWithOtp({
+      email: inv.email,
+      options: { emailRedirectTo: redirectTo }
+    });
+    if (magic.error) {
+      return NextResponse.json({ error: magic.error.message }, { status: 400 });
     }
   }
   return NextResponse.json({ ok: true, emailMode });
