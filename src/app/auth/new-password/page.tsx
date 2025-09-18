@@ -20,7 +20,6 @@ export default function NewPasswordPage() {
 
   useEffect(() => {
     (async () => {
-      // Vérifie la session
       const { data } = await supabase.auth.getSession();
       if (data.session) { setReady(true); return; }
 
@@ -30,36 +29,19 @@ export default function NewPasswordPage() {
       const access_token = url.searchParams.get('access_token');
       const refresh_token = url.searchParams.get('refresh_token');
 
+      let error = null;
       if (code) {
-        // Tente d'établir la session avec le code
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (!error) { setReady(true); return; }
+        const res = await supabase.auth.exchangeCodeForSession(code);
+        error = res.error;
       } else if (access_token && refresh_token) {
-        // Tente d'établir la session avec les tokens
-        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-        if (!error) { setReady(true); return; }
+        const res = await supabase.auth.setSession({ access_token, refresh_token });
+        error = res.error;
       }
-
-      // Si pas de session et pas de code/token, on garde le comportement existant
-      if (!emailHint || attemptedRef.current) {
-        setMsg("Lien invalide ou expiré. Redemandez un email.");
-        return;
-      }
-      attemptedRef.current = true;
-      // Tentative silencieuse d'envoi d'un nouvel email de récupération
-      try {
-        const res = await fetch('/api/auth/begin-password', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: emailHint, inviteId }) });
-        if (!res.ok) {
-          const j = await res.json();
-          setMsg(j?.error || 'Impossible de démarrer la récupération.');
-          return;
-        }
-        setMsg("Nous avons renvoyé un lien à votre adresse. Ouvrez l'email le plus récent.");
-      } catch (e: any) {
-        setMsg(e?.message || 'Erreur lors de la tentative de récupération.');
-      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) { setReady(true); return; }
+      setMsg(error?.message || "Lien invalide ou expiré. Redemandez un email.");
     })();
-  }, [supabase, emailHint, inviteId]);
+  }, [supabase]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,14 +75,12 @@ export default function NewPasswordPage() {
   return (
     <section style={{ maxWidth: 420, margin: '64px auto', display: 'grid', gap: 12 }}>
       <h2>Définir votre mot de passe</h2>
-      {!ready && !msg && <p>Vérification de la session…</p>}
-      {msg && !ready && <p style={{ color: 'crimson' }}>{msg}</p>}
+      {!ready && <p style={{ color: 'crimson' }}>{msg || 'Vérification du lien…'}</p>}
       {ready && (
         <form onSubmit={submit} style={{ display: 'grid', gap: 8 }}>
-          {emailHint && <p style={{ fontSize: 14, color: '#555' }}>{emailHint}</p>}
           <input type="password" placeholder="Nouveau mot de passe" value={password} onChange={e => setPassword(e.target.value)} required />
           <input type="password" placeholder="Confirmer" value={confirm} onChange={e => setConfirm(e.target.value)} required />
-          <button type="submit" disabled={busy}>{busy ? 'Enregistrement…' : (inviteId ? 'Enregistrer et rejoindre' : 'Enregistrer')}</button>
+          <button type="submit" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer'}</button>
         </form>
       )}
     </section>
