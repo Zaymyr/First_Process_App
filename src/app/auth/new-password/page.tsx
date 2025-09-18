@@ -20,14 +20,33 @@ export default function NewPasswordPage() {
 
   useEffect(() => {
     (async () => {
+      // Vérifie la session
       const { data } = await supabase.auth.getSession();
       if (data.session) { setReady(true); return; }
+
+      // Vérifie la présence d'un code ou token dans l'URL
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get('code');
+      const access_token = url.searchParams.get('access_token');
+      const refresh_token = url.searchParams.get('refresh_token');
+
+      if (code) {
+        // Tente d'établir la session avec le code
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!error) { setReady(true); return; }
+      } else if (access_token && refresh_token) {
+        // Tente d'établir la session avec les tokens
+        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (!error) { setReady(true); return; }
+      }
+
+      // Si pas de session et pas de code/token, on garde le comportement existant
       if (!emailHint || attemptedRef.current) {
         setMsg("Lien invalide ou expiré. Redemandez un email.");
         return;
       }
       attemptedRef.current = true;
-      // Attempt to start a fresh recovery email silently
+      // Tentative silencieuse d'envoi d'un nouvel email de récupération
       try {
         const res = await fetch('/api/auth/begin-password', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: emailHint, inviteId }) });
         if (!res.ok) {
