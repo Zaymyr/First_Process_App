@@ -105,30 +105,28 @@ export async function POST(req: Request) {
     .single();
   if (invErr) return NextResponse.json({ error: invErr.message }, { status: 400 });
 
-  // Normalize base URL
+  // Normalisation de l'URL de redirection
   const url = new URL(req.url);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-  // Always bounce through /auth/callback then land on /auth/new-password
   const nextPath = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
   const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(nextPath)}`;
+
+  // On tente d'inviter l'utilisateur
   const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
   if (!adminErr) {
     return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
   }
-  // Existing user fallback: send password reset email (no custom email generation)
+  // Si l'utilisateur existe déjà, on envoie un email de reset avec le même redirect
   const msg = (adminErr.message || '').toLowerCase();
   const already = msg.includes('already been registered') || msg.includes('already registered');
   if (already) {
-    const site = (process.env.NEXT_PUBLIC_SITE_URL || `${url.protocol}//${url.host}`).replace(/\/+$/, '');
-    const next = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}&existing=1`;
-  const redirectToExisting = `${site}/auth/cb?next=${encodeURIComponent(next)}`;
-    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectToExisting });
+    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (!resetErr) {
-      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset-existing' });
+      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
     }
-    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset-existing', note: 'Reset email failed: ' + resetErr?.message });
+    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'invite', note: 'Reset email failed: ' + resetErr?.message });
   }
-  // Other error: invite row exists but Supabase failed sending email
+  // Autre erreur
   return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'invite', note: 'Invite email failed: ' + adminErr.message });
 }
 
