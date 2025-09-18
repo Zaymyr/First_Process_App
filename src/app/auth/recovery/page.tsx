@@ -9,5 +9,5 @@ export default function RecoveryDeprecated() {
     const next = `/auth/new-password${q ? `?${q}` : ''}`;
     window.location.replace(next);
   }, [sp]);
-  return <p style={{ textAlign:'center', marginTop:80 }}>Redirection…</p>;
+  return <p style={{ textAlign: 'center', marginTop: 80 }}>Redirection…</p>;
 }

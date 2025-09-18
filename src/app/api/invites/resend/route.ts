@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   const msg = (resendErr.message || '').toLowerCase();
   const already = msg.includes('already been registered') || msg.includes('already registered');
   if (already) {
-  const { error: resetErr } = await supabase.auth.resetPasswordForEmail(inv.email, { redirectTo });
+    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(inv.email, { redirectTo });
     if (!resetErr) return NextResponse.json({ ok: true, emailMode: 'password-reset' });
     return NextResponse.json({ ok: false, error: 'Password reset email failed: ' + resetErr.message });
   }

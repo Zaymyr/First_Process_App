@@ -12,11 +12,15 @@ export async function middleware(req: NextRequest) {
   const { nextUrl, cookies } = req;
   const pathname = nextUrl.pathname;
 
+  // Autoriser l'accès aux pages d'auth ou si code/token présent dans l'URL
+  const params = nextUrl.searchParams;
+  const hasAuthToken = params.has('code') || params.has('token') || params.has('access_token') || params.has('refresh_token');
   if (
     isAuthPage(pathname) ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
-    pathname.startsWith('/assets')
+    pathname.startsWith('/assets') ||
+    (['/auth/cb', '/auth/new-password'].some(p => pathname.startsWith(p)) && hasAuthToken)
   ) {
     return NextResponse.next();
   }

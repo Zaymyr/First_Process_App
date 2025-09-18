@@ -25,7 +25,7 @@ export default function AuthHashBridge() {
         const q = new URLSearchParams();
         q.set('access_token', hashParams.get('access_token')!);
         q.set('refresh_token', hashParams.get('refresh_token')!);
-        const extraKeys = ['expires_in','expires_at','token_type','type','provider_token'];
+        const extraKeys = ['expires_in', 'expires_at', 'token_type', 'type', 'provider_token'];
         extraKeys.forEach(k => { const v = hashParams.get(k); if (v) q.set(k, v); });
         q.set('next', next);
         window.location.replace(`${baseCallback}?${q.toString()}`);
@@ -38,7 +38,7 @@ export default function AuthHashBridge() {
   }, [sp]);
 
   return (
-    <main style={{ display:'grid', placeItems:'center', minHeight:'60vh' }}>
+    <main style={{ display: 'grid', placeItems: 'center', minHeight: '60vh' }}>
       <p>Connexion…</p>
     </main>
   );
