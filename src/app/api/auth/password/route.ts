@@ -49,8 +49,12 @@ export async function POST(req: Request) {
   }
 
   // Utiliser le client qui possède la session valide
-  const { error } = await (bearerClient ? bearerClient.auth.updateUser({ password }) : supabase.auth.updateUser({ password }));
+  const client = bearerClient || supabase;
+  const { error } = await client.auth.updateUser({ password });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  return NextResponse.json({ ok: true });
+  // Flag metadata has_password=true
+  await client.auth.updateUser({ data: { has_password: true } });
+
+  return NextResponse.json({ ok: true, has_password: true });
 }
