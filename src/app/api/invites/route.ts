@@ -111,14 +111,15 @@ export async function POST(req: Request) {
   const nextPath = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
   const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(nextPath)}`;
 
-  // Au lieu d'utiliser admin.inviteUserByEmail (qui peut produire des liens différents),
-  // on envoie systématiquement un lien de type "recovery" via Supabase client.
-  // Ce lien passe par /auth/v1/verify puis redirige vers /auth/cb?next=/auth/new-password?...
-  const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-  if (!resetErr) {
-    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
+  // Envoi d'un magic link (OTP email) qui créera la session puis redirigera vers /auth/new-password
+  const { error: otpErr } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: redirectTo },
+  });
+  if (!otpErr) {
+    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'magic-link' });
   }
-  return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Reset email failed: ' + resetErr?.message });
+  return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'magic-link', note: 'Magic link failed: ' + otpErr?.message });
 }
 
 export async function GET(req: NextRequest) {

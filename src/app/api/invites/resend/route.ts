@@ -52,14 +52,10 @@ export async function POST(req: Request) {
   const next = `/auth/new-password?inviteId=${inv.id}&em=${encodeURIComponent(inv.email)}`;
   const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(next)}`;
 
-  const { error: resendErr } = await admin.auth.admin.inviteUserByEmail(inv.email, { redirectTo, data: { invited_role: inv.role } });
-  if (!resendErr) return NextResponse.json({ ok: true, emailMode: 'invite' });
-  const msg = (resendErr.message || '').toLowerCase();
-  const already = msg.includes('already been registered') || msg.includes('already registered');
-  if (already) {
-    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(inv.email, { redirectTo });
-    if (!resetErr) return NextResponse.json({ ok: true, emailMode: 'password-reset' });
-    return NextResponse.json({ ok: false, error: 'Password reset email failed: ' + resetErr.message });
-  }
-  return NextResponse.json({ error: resendErr.message }, { status: 400 });
+  const { error: otpErr } = await supabase.auth.signInWithOtp({
+    email: inv.email,
+    options: { emailRedirectTo: redirectTo },
+  });
+  if (!otpErr) return NextResponse.json({ ok: true, emailMode: 'magic-link' });
+  return NextResponse.json({ error: otpErr.message }, { status: 400 });
 }
