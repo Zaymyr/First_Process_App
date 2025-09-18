@@ -50,7 +50,21 @@ export default function AcceptPage() {
           let err: any = null;
           if (code) {
             const r = await supabase.auth.exchangeCodeForSession(code);
-            err = r.error;
+            if (r.error && /code verifier/i.test(r.error.message)) {
+              // Fallback: essayer verifyOtp (certains liens d'invite peuvent arriver sans code_verifier enregistré)
+              const email = expectedEmail || '';
+              // Tentative type signup
+              const v1 = await supabase.auth.verifyOtp({ type: 'signup' as any, token: code, email });
+              if (v1.error) {
+                // Tentative type invite
+                const v2 = await supabase.auth.verifyOtp({ type: 'invite' as any, token: code, email });
+                err = v2.error;
+              } else {
+                err = null;
+              }
+            } else {
+              err = r.error;
+            }
           } else if (access_token && refresh_token) {
             const r = await supabase.auth.setSession({ access_token, refresh_token });
             err = r.error;
