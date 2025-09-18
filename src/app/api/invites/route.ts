@@ -111,23 +111,14 @@ export async function POST(req: Request) {
   const nextPath = `/auth/new-password?inviteId=${invite.id}&em=${encodeURIComponent(lowerEmail)}`;
   const redirectTo = `${base}/auth/cb?next=${encodeURIComponent(nextPath)}`;
 
-  // On tente d'inviter l'utilisateur
-  const { error: adminErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: { invited_role: role } });
-  if (!adminErr) {
-    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
+  // Au lieu d'utiliser admin.inviteUserByEmail (qui peut produire des liens différents),
+  // on envoie systématiquement un lien de type "recovery" via Supabase client.
+  // Ce lien passe par /auth/v1/verify puis redirige vers /auth/cb?next=/auth/new-password?...
+  const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  if (!resetErr) {
+    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'password-reset' });
   }
-  // Si l'utilisateur existe déjà, on envoie un email de reset avec le même redirect
-  const msg = (adminErr.message || '').toLowerCase();
-  const already = msg.includes('already been registered') || msg.includes('already registered');
-  if (already) {
-    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-    if (!resetErr) {
-      return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: true, emailMode: 'invite' });
-    }
-    return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'invite', note: 'Reset email failed: ' + resetErr?.message });
-  }
-  // Autre erreur
-  return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'invite', note: 'Invite email failed: ' + adminErr.message });
+  return NextResponse.json({ ok: true, inviteId: invite.id, emailSent: false, emailMode: 'password-reset', note: 'Reset email failed: ' + resetErr?.message });
 }
 
 export async function GET(req: NextRequest) {
