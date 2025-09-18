@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
   );
 
   const params = url.searchParams;
+  const token = params.get('token');
+  const type = params.get('type');
   if (params.get('code')) {
     // Code/PKCE flow
     await supabase.auth.exchangeCodeForSession(params.toString());
@@ -43,34 +45,23 @@ export async function GET(req: NextRequest) {
       access_token: params.get('access_token')!,
       refresh_token: params.get('refresh_token')!,
     });
-  } else if (params.get('token') && params.get('type') === 'recovery') {
-    // Récupération de mot de passe (reset/invitation)
-    // L'email peut être fourni top-level (em/email) ou encodée dans le param `next`.
+  } else if (token && (type === 'recovery' || type === 'invite' || type === 'signup')) {
+    // Gestion unifiée des tokens OTP (recovery, invite, signup)
     let email = params.get('em') || params.get('email') || '';
     if (!email) {
       try {
-        // 'next' a été décodé plus haut dans la variable `next`.
-        // Extraire la partie query de `next` et rechercher em= ou email=
         const qIdx = next.indexOf('?');
         if (qIdx >= 0) {
           const query = next.slice(qIdx + 1);
-          // Match sans décodage URLSearchParams (préserver les plus '+')
           const mEm = query.match(/(?:^|&)em=([^&]+)/);
           const mEmail = query.match(/(?:^|&)email=([^&]+)/);
-          const rawVal = (mEm && mEm[1]) || (mEmail && mEmail[1]) || '';
-          if (rawVal) {
-            email = decodeURIComponent(rawVal);
-          }
+            const rawVal = (mEm && mEm[1]) || (mEmail && mEmail[1]) || '';
+          if (rawVal) email = decodeURIComponent(rawVal);
         }
-      } catch (e) {
-        // ignore parsing errors, on tombera sur email vide
-      }
+      } catch {}
     }
-    await supabase.auth.verifyOtp({
-      type: 'recovery',
-      token: params.get('token')!,
-      email,
-    });
+    // 'signup' utilise aussi verifyOtp avec type signup pour établir la session.
+    await supabase.auth.verifyOtp({ type: type as any, token, email });
   }
   return res;
 }
