@@ -45,7 +45,27 @@ export async function GET(req: NextRequest) {
     });
   } else if (params.get('token') && params.get('type') === 'recovery') {
     // Récupération de mot de passe (reset/invitation)
-    const email = params.get('em') || params.get('email') || '';
+    // L'email peut être fourni top-level (em/email) ou encodée dans le param `next`.
+    let email = params.get('em') || params.get('email') || '';
+    if (!email) {
+      try {
+        // 'next' a été décodé plus haut dans la variable `next`.
+        // Extraire la partie query de `next` et rechercher em= ou email=
+        const qIdx = next.indexOf('?');
+        if (qIdx >= 0) {
+          const query = next.slice(qIdx + 1);
+          // Match sans décodage URLSearchParams (préserver les plus '+')
+          const mEm = query.match(/(?:^|&)em=([^&]+)/);
+          const mEmail = query.match(/(?:^|&)email=([^&]+)/);
+          const rawVal = (mEm && mEm[1]) || (mEmail && mEmail[1]) || '';
+          if (rawVal) {
+            email = decodeURIComponent(rawVal);
+          }
+        }
+      } catch (e) {
+        // ignore parsing errors, on tombera sur email vide
+      }
+    }
     await supabase.auth.verifyOtp({
       type: 'recovery',
       token: params.get('token')!,
