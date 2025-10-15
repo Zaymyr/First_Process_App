@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DepartementDeleteButton from './DepartementDeleteButton';
@@ -88,9 +87,6 @@ export default function DepartementListItem({ departement }: Props) {
             </button>
           </div>
         )}
-        <Link className="link" href={`/processes/departements/${id}`}>
-          Manage roles
-        </Link>
       </div>
       <DepartementDeleteButton id={id} />
     </li>
