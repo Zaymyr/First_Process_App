@@ -193,13 +193,6 @@ export async function DELETE(req: Request) {
     }
   }
 
-  // Récupérer email via admin auth (peut échouer silencieusement)
-  let email: string | null = null;
-  try {
-    const { data: u } = await (admin as any).auth.admin.getUserById(user_id);
-    email = (u?.user?.email ?? null) as string | null;
-  } catch {}
-
   // Supprimer membership
   const { error: delMemErr } = await admin
     .from('org_members')
