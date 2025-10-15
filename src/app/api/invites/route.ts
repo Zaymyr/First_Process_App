@@ -5,3 +5,4 @@ export async function GET() {
 export async function POST() {
   return new Response(JSON.stringify({ error: 'Invitations feature removed' }), { status: 410, headers: { 'content-type': 'application/json' } });
 }
+import { NextRequest, NextResponse } from 'next/server';

@@ -22,6 +22,7 @@ export default function Toaster() {
       url.searchParams.delete('kind');
       window.history.replaceState({}, '', url.toString());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
   // 2) Permettre des toasts in-app via un CustomEvent

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
 import RoleForm from '../../parts/RoleForm';
-import RoleDeleteButton from '../../parts/RoleDeleteButton';
+import RoleListItem from '../../parts/RoleListItem';
 
 type Role = { id: number; name: string; departement_id: number };
 
@@ -43,11 +43,8 @@ export default async function DeptRolesPage({ params }: { params: { id: string }
       <h2>Roles · {dep.name ?? `Dept ${dep.id}`}</h2>
       <div className="card stack">
         <ul className="stack" style={{ gap: 6 }}>
-          {roles.map((r) => (
-            <li key={r.id} className="row" style={{ justifyContent: 'space-between', gap: 12 }}>
-              <span>{r.name}</span>
-              <RoleDeleteButton departementId={depId} roleId={r.id} />
-            </li>
+          {roles.map((role) => (
+            <RoleListItem key={role.id} role={role} />
           ))}
           {roles.length === 0 && <li className="muted">No roles yet.</li>}
         </ul>

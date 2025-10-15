@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 type Dept = { id: number; name: string | null; organization_id: string };
@@ -82,9 +81,6 @@ export default function ProcessItem({
         </div>
       </div>
       <div className="row">
-        <Link className="btn btn-outline" href={`/processes/${item.id}/edition`}>
-          Edition
-        </Link>
         <button className="btn btn-outline" onClick={() => setEditing(true)}>Edit</button>
         <button className="btn btn-danger" onClick={remove}>Delete</button>
       </div>
