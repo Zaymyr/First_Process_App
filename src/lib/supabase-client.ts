@@ -14,11 +14,9 @@ export function createClient() {
         url.searchParams.delete('code');
         window.history.replaceState({}, '', url.toString());
         // Log discret pour debug (peut être retiré plus tard)
-        // eslint-disable-next-line no-console
         console.info('[supabase-client] Paramètre ?code retiré (ancien lien PKCE)');
       }
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.warn('[supabase-client] Sanitation code param échouée', e);
     }
   }
@@ -27,10 +25,10 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        persistSession: true,        // keep session in localStorage
-        detectSessionInUrl: true,    // parse tokens on redirect
-  flowType: 'implicit',        // implicit: évite dépendance au code_verifier pour liens email (invite/magic)
-      }
+        persistSession: true, // keep session in localStorage
+        detectSessionInUrl: true, // parse tokens on redirect
+        flowType: 'implicit', // implicit: évite dépendance au code_verifier pour liens email (invite/magic)
+      },
     }
   );
 }
