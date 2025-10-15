@@ -36,17 +36,8 @@ export default function ProcessesWorkspace({
       <div className="processes-canvas">
         <ProcessPreview process={selectedProcess} departements={departements} />
       </div>
-      <aside className="processes-panel">
-        <div className="card stack" style={{ gap: 16 }}>
-          <header className="stack" style={{ gap: 4 }}>
-            <h2>Processes</h2>
-            <p className="muted" style={{ fontSize: 13 }}>
-              {org.name ? `Organisation: ${org.name}` : 'Organisation sans nom'}
-            </p>
-          </header>
-          <ProcessForm orgId={org.id} departements={departements} />
-        </div>
 
+      <aside className="processes-panel processes-panel--left">
         <div className="card stack" style={{ gap: 12 }}>
           <header className="spaced" style={{ alignItems: 'flex-end' }}>
             <h3>Existing processes</h3>
@@ -68,6 +59,18 @@ export default function ProcessesWorkspace({
               <li className="processes-empty muted">No process yet. Create one above.</li>
             )}
           </ul>
+        </div>
+      </aside>
+
+      <aside className="processes-panel processes-panel--right">
+        <div className="card stack" style={{ gap: 16 }}>
+          <header className="stack" style={{ gap: 4 }}>
+            <h2>Processes</h2>
+            <p className="muted" style={{ fontSize: 13 }}>
+              {org.name ? `Organisation: ${org.name}` : 'Organisation sans nom'}
+            </p>
+          </header>
+          <ProcessForm orgId={org.id} departements={departements} />
         </div>
       </aside>
     </section>
