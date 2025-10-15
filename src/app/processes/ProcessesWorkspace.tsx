@@ -51,30 +51,42 @@ export default function ProcessesWorkspace({
         <ProcessPreview process={selectedProcess} departements={departements} />
       </div>
 
-      <aside
-        className={`processes-panel processes-panel--dock ${panelOpen ? '' : 'collapsed'}`}
-        aria-label="Manage processes"
-      >
-        <button
-          type="button"
-          className="processes-panel-toggle"
-          onClick={() => setPanelOpen((open) => !open)}
-          aria-expanded={panelOpen}
-          aria-controls="processes-panel-content"
-        >
-          <span aria-hidden>{panelOpen ? '›' : '‹'}</span>
-          <span className="sr-only">{panelOpen ? 'Collapse panel' : 'Expand panel'}</span>
-        </button>
+      <aside className={`processes-dock ${panelOpen ? '' : 'collapsed'}`} aria-label="Manage processes">
+        <div className="processes-dock-header">
+          <div className="processes-dock-info">
+            <span className="processes-dock-icon" aria-hidden>
+              🧩
+            </span>
+            {panelOpen && (
+              <div className="processes-dock-heading">
+                <h2 className="processes-dock-title">Processes</h2>
+                <p className="processes-dock-subtitle muted">
+                  {org.name ? `Organisation: ${org.name}` : 'Organisation sans nom'}
+                </p>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="processes-dock-toggle"
+            onClick={() => setPanelOpen((open) => !open)}
+            aria-expanded={panelOpen}
+            aria-controls="processes-panel-content"
+          >
+            <span aria-hidden>{panelOpen ? '›' : '‹'}</span>
+            <span className="sr-only">{panelOpen ? 'Collapse panel' : 'Expand panel'}</span>
+          </button>
+        </div>
 
         <div
           id="processes-panel-content"
-          className="processes-panel-content"
+          className="processes-dock-content"
           aria-hidden={!panelOpen}
         >
-          <div className="card stack" style={{ gap: 12 }}>
-            <header className="spaced" style={{ alignItems: 'flex-end' }}>
+          <section className="processes-dock-section">
+            <header className="processes-dock-section-header">
               <h3>Existing processes</h3>
-              <span className="muted" style={{ fontSize: 12 }}>
+              <span className="muted" aria-live="polite">
                 {processes.length} {processes.length === 1 ? 'process' : 'processes'}
               </span>
             </header>
@@ -89,20 +101,17 @@ export default function ProcessesWorkspace({
                 />
               ))}
               {processes.length === 0 && (
-                <li className="processes-empty muted">No process yet. Create one above.</li>
+                <li className="processes-empty muted">No process yet. Create one below.</li>
               )}
             </ul>
-          </div>
+          </section>
 
-          <div className="card stack" style={{ gap: 16 }}>
-            <header className="stack" style={{ gap: 4 }}>
-              <h2>Processes</h2>
-              <p className="muted" style={{ fontSize: 13 }}>
-                {org.name ? `Organisation: ${org.name}` : 'Organisation sans nom'}
-              </p>
+          <section className="processes-dock-section">
+            <header className="processes-dock-section-header">
+              <h3>Create a process</h3>
             </header>
             <ProcessForm orgId={org.id} departements={departements} />
-          </div>
+          </section>
         </div>
       </aside>
     </section>
