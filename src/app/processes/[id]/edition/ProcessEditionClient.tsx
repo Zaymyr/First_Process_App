@@ -193,15 +193,15 @@ export default function ProcessEditionClient({
       lines.push(`  ${nodeId}["${label}"]`);
     });
 
-    lines.push('  end([End])');
+    lines.push('  finish([End])');
 
     if (steps.length === 0) {
-      lines.push('  start --> end');
+      lines.push('  start --> finish');
     } else {
       lines.push('  start --> step_0');
       for (let i = 0; i < steps.length; i += 1) {
         if (i === steps.length - 1) {
-          lines.push(`  step_${i} --> end`);
+          lines.push(`  step_${i} --> finish`);
         } else {
           lines.push(`  step_${i} --> step_${i + 1}`);
         }
