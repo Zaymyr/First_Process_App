@@ -7,9 +7,19 @@ type Dept = { id: number; name: string | null; organization_id: string };
 export default function ProcessItem({
   item,
   departements,
+  onSelect,
+  selected = false,
 }: {
-  item: { id: string; name: string; organization_id: string; departement_id: number | null; updated_at: string | null };
+  item: {
+    id: string;
+    name: string;
+    organization_id: string;
+    departement_id: number | null;
+    updated_at: string | null;
+  };
   departements: Dept[];
+  onSelect?: (id: string) => void;
+  selected?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(item.name);
@@ -24,6 +34,12 @@ export default function ProcessItem({
     () => departements.filter((d) => d.organization_id === item.organization_id),
     [departements, item.organization_id]
   );
+
+  const deptName = useMemo(() => {
+    if (!item.departement_id) return null;
+    const found = deptsForOrg.find((d) => d.id === item.departement_id);
+    return found?.name ?? `Dept ${item.departement_id}`;
+  }, [deptsForOrg, item.departement_id]);
 
   async function save() {
     const res = await fetch(`/api/processes/${item.id}`, {
@@ -51,38 +67,96 @@ export default function ProcessItem({
       alert(j?.error || 'Failed to delete');
       return;
     }
-    window.location.href = '/processes?toast=' + encodeURIComponent('Process deleted') + '&kind=success';
+    window.location.href =
+      '/processes?toast=' + encodeURIComponent('Process deleted') + '&kind=success';
+  }
+
+  const classes = ['card', 'processes-list-item'];
+  if (selected) classes.push('selected');
+  if (editing) classes.push('editing');
+  const className = classes.join(' ');
+
+  function handleSelect() {
+    if (editing) return;
+    onSelect?.(item.id);
   }
 
   if (editing) {
     return (
-      <li className="card" style={{ display:'flex', gap:8, alignItems:'center' }}>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
-        <select className="select" value={dept} onChange={(e) => setDept(e.target.value)}>
-          <option value="">— no department —</option>
-          {deptsForOrg.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name ?? `Dept ${d.id}`}
-            </option>
-          ))}
-        </select>
-        <button className="btn" onClick={save}>Save</button>
-        <button className="btn btn-outline" onClick={() => setEditing(false)}>Cancel</button>
+      <li className={className}>
+        <div className="stack" style={{ gap: 10 }}>
+          <input
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Process name"
+          />
+          <label className="stack" style={{ gap: 4 }}>
+            <span className="muted" style={{ fontSize: 12 }}>
+              Departement
+            </span>
+            <select className="select" value={dept} onChange={(e) => setDept(e.target.value)}>
+              <option value="">— no department —</option>
+              {deptsForOrg.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name ?? `Dept ${d.id}`}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="processes-list-item-actions">
+          <button className="btn" onClick={save}>
+            Save
+          </button>
+          <button className="btn btn-outline" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        </div>
       </li>
     );
   }
 
   return (
-    <li className="card" style={{ display:'flex', gap:12, alignItems:'center', justifyContent:'space-between' }}>
-      <div>
-        <strong>{item.name}</strong>
-        <div className="muted" style={{ fontSize: 12 }}>
-          Last update: <time dateTime={item.updated_at ?? ''}>{updated}</time>
+    <li className={className}>
+      <div className="processes-list-item-header">
+        <button
+          type="button"
+          className="processes-list-item-main"
+          onClick={(event) => {
+            event.stopPropagation();
+            handleSelect();
+          }}
+        >
+          <strong>{item.name}</strong>
+          <div className="processes-list-item-meta">
+            <span>{deptName ?? 'No department'}</span>
+            <span>
+              Last update:{' '}
+              <time dateTime={item.updated_at ?? ''}>{updated}</time>
+            </span>
+          </div>
+        </button>
+        <div className="processes-list-item-actions">
+          <button
+            className="btn btn-outline"
+            onClick={(event) => {
+              event.stopPropagation();
+              setEditing(true);
+            }}
+          >
+            Edit
+          </button>
+          <button
+            className="btn btn-danger"
+            onClick={(event) => {
+              event.stopPropagation();
+              remove();
+            }}
+          >
+            Delete
+          </button>
         </div>
-      </div>
-      <div className="row">
-        <button className="btn btn-outline" onClick={() => setEditing(true)}>Edit</button>
-        <button className="btn btn-danger" onClick={remove}>Delete</button>
       </div>
     </li>
   );

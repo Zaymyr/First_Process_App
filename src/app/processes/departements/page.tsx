@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase-server';
-import Link from 'next/link';
 import DepartementForm from '@/app/processes/DepartementForm';
-import DepartementDeleteButton from '@/app/processes/parts/DepartementDeleteButton';
+import DepartementListItem from '@/app/processes/parts/DepartementListItem';
 
 type Dept = { id: number; name: string | null; organization_id: string };
 
@@ -33,14 +32,8 @@ export default async function DepartementsPage() {
       <h2>Departments</h2>
       <div className="card stack">
         <ul className="stack" style={{ gap: 6 }}>
-          {departements.map((d) => (
-            <li key={d.id} className="row" style={{ justifyContent: 'space-between', gap: 12 }}>
-              <div className="row" style={{ gap: 8 }}>
-                <span>{d.name ?? `Dept ${d.id}`}</span>
-                <Link className="link" href={`/processes/departements/${d.id}`}>Roles</Link>
-              </div>
-              <DepartementDeleteButton id={d.id} />
-            </li>
+          {departements.map((departement) => (
+            <DepartementListItem key={departement.id} departement={departement} />
           ))}
           {departements.length === 0 && <li className="muted">No departments yet.</li>}
         </ul>
