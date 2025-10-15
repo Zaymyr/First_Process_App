@@ -1,18 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import RoleDeleteButton from './RoleDeleteButton';
 
 type Role = { id: number; name: string; departement_id: number };
 
 type Props = {
   role: Role;
+  onRenamed?: (roleId: number, name: string) => void;
+  onDeleted?: (roleId: number) => void;
 };
 
-export default function RoleListItem({ role }: Props) {
+export default function RoleListItem({ role, onRenamed, onDeleted }: Props) {
   const { id } = role;
-  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(role.name);
   const [pending, setPending] = useState(false);
@@ -41,7 +41,7 @@ export default function RoleListItem({ role }: Props) {
       if (!res.ok) throw new Error(payload?.error || 'Failed to rename role');
       setName(trimmed);
       setEditing(false);
-      router.refresh();
+      onRenamed?.(id, trimmed);
     } catch (e: any) {
       setError(e?.message || 'Failed to rename role');
     } finally {
@@ -80,13 +80,24 @@ export default function RoleListItem({ role }: Props) {
         ) : (
           <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <span>{role.name}</span>
-            <button className="btn btn-outline" type="button" onClick={() => setEditing(true)}>
+            <button
+              className="btn btn-outline"
+              type="button"
+              onClick={() => {
+                setError(null);
+                setEditing(true);
+              }}
+            >
               Rename
             </button>
           </div>
         )}
       </div>
-      <RoleDeleteButton departementId={role.departement_id} roleId={id} />
+      <RoleDeleteButton
+        departementId={role.departement_id}
+        roleId={id}
+        onDeleted={() => onDeleted?.(id)}
+      />
     </li>
   );
 }

@@ -1,11 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
-export default function RoleDeleteButton({ departementId, roleId }: { departementId: number; roleId: number }) {
+type Props = {
+  departementId: number;
+  roleId: number;
+  onDeleted?: () => void;
+};
+
+export default function RoleDeleteButton({ departementId, roleId, onDeleted }: Props) {
   const [pending, setPending] = useState(false);
-  const router = useRouter();
 
   async function onDelete() {
     if (!confirm('Delete this role?')) return;
@@ -18,7 +22,9 @@ export default function RoleDeleteButton({ departementId, roleId }: { departemen
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || 'Failed to delete role');
-      router.refresh();
+      onDeleted?.();
+    } catch (error: any) {
+      alert(error?.message || 'Failed to delete role');
     } finally {
       setPending(false);
     }
